@@ -66,7 +66,7 @@ export function Footer() {
             <div className="flex flex-col gap-2.5 font-['Work_Sans',sans-serif] text-sm text-[#5C4037]">
               <div className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-[#FF4500] mt-0.5 shrink-0" />
-                <span>Jl. Budi Utomo No. 12, Timika, Mimika, Papua Tengah</span>
+                <span>SKY COFFEE25, Jl. Bhayangkara, Koperapoka, Mimika Baru, Papua Tengah 99971</span>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-[#FF4500] shrink-0" />

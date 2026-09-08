@@ -63,7 +63,7 @@ export default function LoginPage() {
             {/* Bottom Security Note */}
             <div className="relative z-10 flex items-center gap-2 font-['Space_Mono',monospace] text-[11px] text-white/70">
               <Lock className="w-3.5 h-3.5 text-white" />
-              <span>ENCRYPTED PROTOCOL • PAPUA NODE</span>
+              <span>ENCRYPTED PROTOCOL • NOKARA.ID</span>
             </div>
           </div>
 
