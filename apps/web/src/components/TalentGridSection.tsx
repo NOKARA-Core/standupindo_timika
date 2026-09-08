@@ -1,35 +1,18 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Users } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
+import { ComedianAssetConfig, defaultSiteConfig } from "../lib/site-config";
 
-interface Talent {
-  name: string;
-  badge: string;
-  description: string;
+interface TalentGridSectionProps {
+  comediansConfig?: ComedianAssetConfig[];
+  isDynamic?: boolean;
 }
 
-const talentList: Talent[] = [
-  {
-    name: "DIMAS",
-    badge: "DEADPAN",
-    description:
-      "Master of awkward silences and brutal observations about Timika traffic.",
-  },
-  {
-    name: "TIKA",
-    badge: "OBSERVATIONAL",
-    description:
-      "Rapid-fire punchlines dissecting modern relationships and local cafe culture.",
-  },
-  {
-    name: "RIAN",
-    badge: "ROAST",
-    description:
-      "No one is safe. If you sit in the front row, you're part of the set.",
-  },
-];
-
-export function TalentGridSection() {
+export function TalentGridSection({
+  comediansConfig = defaultSiteConfig.comedians,
+  isDynamic = false,
+}: TalentGridSectionProps) {
   return (
     <section
       id="talents"
@@ -59,57 +42,82 @@ export function TalentGridSection() {
 
         {/* Talent Grid with Staggered pop-in */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {talentList.map((talent, index) => (
-            <AnimateReveal
-              key={index}
-              variant="fade-up"
-              delayMs={index * 110}
-              durationMs={700}
-            >
-              <div className="bg-white border-2 border-black shadow-[8px_8px_0px_0px_#000000] flex flex-col justify-between hover:shadow-[4px_4px_0px_0px_#000000] hover:translate-x-1 hover:translate-y-1 transition-all">
-                {/* Card Header Frame */}
-                <div className="h-52 bg-[#FFF8F6] border-b-2 border-black p-4 flex flex-col justify-between relative overflow-hidden">
-                  <div className="flex justify-between items-start">
-                    <span className="px-3 py-1 bg-black text-white font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-wider">
-                      {talent.badge}
-                    </span>
-                    <span className="font-['Space_Mono',monospace] text-xs font-bold text-[#5C4037]">
-                      0{index + 1}
-                    </span>
+          {comediansConfig.map((talent, index) => {
+            const hasCustomPhoto = Boolean(isDynamic && talent.avatarUrl);
+
+            return (
+              <AnimateReveal
+                key={talent.id || index}
+                variant="fade-up"
+                delayMs={index * 110}
+                durationMs={700}
+              >
+                <div className="bg-white border-4 border-black rounded-none shadow-[8px_8px_0px_0px_#000000] flex flex-col justify-between hover:shadow-[4px_4px_0px_0px_#000000] hover:translate-x-1 hover:translate-y-1 transition-all h-full">
+                  {/* Card Header Frame (Fixed Aspect/Height Container) */}
+                  <div className="h-56 bg-[#FFF8F6] border-b-4 border-black p-4 flex flex-col justify-between relative overflow-hidden">
+                    {/* Custom Headshot Image Layer */}
+                    {hasCustomPhoto && talent.avatarUrl && (
+                      <div className="absolute inset-0 z-0">
+                        <Image
+                          src={talent.avatarUrl}
+                          alt={talent.name}
+                          fill
+                          className="object-cover filter grayscale contrast-125 hover:grayscale-0 transition-all duration-300"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 pointer-events-none" />
+                      </div>
+                    )}
+
+                    {/* Top Badges */}
+                    <div className="flex justify-between items-start z-10 relative">
+                      <span className="px-3 py-1 bg-black text-white font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-wider border border-white/20">
+                        {talent.badge}
+                      </span>
+                      <span
+                        className={`font-['Space_Mono',monospace] text-xs font-bold ${
+                          hasCustomPhoto ? "text-white" : "text-[#5C4037]"
+                        }`}
+                      >
+                        0{index + 1}
+                      </span>
+                    </div>
+
+                    {/* Typographic fallback when no custom photo */}
+                    {!hasCustomPhoto && (
+                      <div className="text-center py-4 z-10 relative">
+                        <span className="font-['Anton',sans-serif] text-5xl text-[#281812] tracking-wider uppercase opacity-20 select-none">
+                          COMEDIAN
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="w-full h-1 bg-black z-10 relative"></div>
                   </div>
 
-                  <div className="text-center py-4">
-                    <span className="font-['Anton',sans-serif] text-5xl text-[#281812] tracking-wider uppercase opacity-20 select-none">
-                      COMEDIAN
-                    </span>
-                  </div>
+                  {/* Card Body */}
+                  <div className="p-6 flex flex-col justify-between flex-1 gap-6">
+                    <div>
+                      <h3 className="font-['Anton',sans-serif] text-3xl text-[#281812] uppercase tracking-wide">
+                        {talent.name}
+                      </h3>
+                      <p className="font-['Work_Sans',sans-serif] text-base text-[#5C4037] mt-3 leading-relaxed">
+                        {talent.description}
+                      </p>
+                    </div>
 
-                  <div className="w-full h-1 bg-black"></div>
+                    <Link
+                      href="/talents"
+                      className="group w-full py-3 bg-[#FFF8F6] hover:bg-black text-[#281812] hover:text-[#ffffff] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all text-center block"
+                    >
+                      <span className="text-[#281812] group-hover:text-[#ffffff] transition-colors">
+                        BOOK NOW
+                      </span>
+                    </Link>
+                  </div>
                 </div>
-
-                {/* Card Body */}
-                <div className="p-6 flex flex-col justify-between flex-1 gap-6">
-                  <div>
-                    <h3 className="font-['Anton',sans-serif] text-3xl text-[#281812] uppercase tracking-wide">
-                      {talent.name}
-                    </h3>
-                    <p className="font-['Work_Sans',sans-serif] text-base text-[#5C4037] mt-3 leading-relaxed">
-                      {talent.description}
-                    </p>
-                  </div>
-
-                  <Link
-                    href="/talents"
-                    className="group w-full py-3 bg-[#FFF8F6] hover:bg-black text-[#281812] hover:text-[#ffffff] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all text-center block"
-                  >
-                    <span className="text-[#281812] group-hover:text-[#ffffff] transition-colors">
-                      BOOK NOW
-                    </span>
-                  </Link>
-                </div>
-              </div>
-            </AnimateReveal>
-          ))}
+              </AnimateReveal>
+            );
+          })}
         </div>
       </div>
     </section>

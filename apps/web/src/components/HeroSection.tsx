@@ -1,15 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Play } from "lucide-react";
+import { HeroAssetConfig, defaultSiteConfig } from "../lib/site-config";
 
-export function HeroSection() {
+interface HeroSectionProps {
+  heroConfig?: HeroAssetConfig;
+  isDynamic?: boolean;
+}
+
+export function HeroSection({
+  heroConfig = defaultSiteConfig.hero,
+  isDynamic = false,
+}: HeroSectionProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const hasCustomImage = Boolean(isDynamic && heroConfig?.url);
 
   return (
     <section className="w-full bg-[#FDFBF7] py-16 px-6 md:px-12 lg:px-20 border-b-2 border-black overflow-hidden">
@@ -48,38 +60,65 @@ export function HeroSection() {
 
         {/* Right Column: Hero Visual Frame with Recoil Punch Entrance and Spring Settling */}
         <div
-          className={`w-full max-w-[548px] h-[380px] md:h-[480px] lg:h-[500px] mx-auto bg-[#FFF8F6] border-2 border-black shadow-[8px_8px_0px_0px_#000000] hover:shadow-[12px_12px_0px_0px_#000000] relative overflow-hidden flex flex-col justify-between p-6 cursor-pointer select-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-            mounted ? "animate-hero-entrance hover:rotate-0 hover:scale-[1.01]" : "opacity-0"
+          className={`w-full max-w-[548px] h-[380px] md:h-[480px] lg:h-[500px] aspect-[4/5] sm:aspect-square md:aspect-[4/5] mx-auto bg-[#FFF8F6] border-4 border-black rounded-none shadow-[8px_8px_0px_0px_#000000] hover:shadow-[12px_12px_0px_0px_#000000] relative overflow-hidden flex flex-col justify-between p-6 cursor-pointer select-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            mounted
+              ? "animate-hero-entrance hover:rotate-0 hover:scale-[1.01]"
+              : "opacity-0"
           }`}
         >
-          {/* Neo-brutalist graphic card badge */}
-          <div className="flex justify-between items-start">
-            <span className="px-3 py-1 bg-black text-white font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-widest">
-              PAPUA UNDERGROUND
+          {/* Dynamic Image Layer (when active) */}
+          {hasCustomImage && heroConfig?.url && (
+            <div className="absolute inset-0 z-0">
+              <Image
+                src={heroConfig.url}
+                alt="StandUp INDO Timika Live Stage"
+                fill
+                priority
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/40 pointer-events-none" />
+            </div>
+          )}
+
+          {/* Top Badges */}
+          <div className="flex justify-between items-start z-10 relative">
+            <span className="px-3 py-1 bg-black text-white font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-widest border border-white/20">
+              {heroConfig?.tag || "PAPUA UNDERGROUND"}
             </span>
-            <span className="px-3 py-1 bg-[#FF4500] text-white font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-widest border border-black">
-              EST. TIMIKA
+            <span className="px-3 py-1 bg-[#FF4500] text-white font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-widest border-2 border-black">
+              {heroConfig?.subtag || "EST. TIMIKA"}
             </span>
           </div>
 
-          {/* Central graphic typography badge */}
-          <div className="my-auto text-center border-4 border-black bg-white p-6 shadow-[4px_4px_0px_0px_#000000] active:translate-x-[1px] active:translate-y-[1px]">
-            <span className="font-['Anton',sans-serif] text-4xl md:text-5xl lg:text-6xl text-[#281812] uppercase block tracking-wider">
-              STANDUPINDO
-            </span>
-            <span className="font-['Anton',sans-serif] text-3xl md:text-4xl text-[#FF4500] uppercase block tracking-widest mt-1">
-              TIMIKA CHAPTER
-            </span>
-            <p className="font-['Space_Mono',monospace] text-xs uppercase tracking-widest text-[#5C4037] mt-3 border-t-2 border-black pt-2">
-              SOLID • SPONTAN • SAKIT PERUT
-            </p>
-          </div>
+          {/* Central graphic typography badge (Default Fallback) */}
+          {!hasCustomImage && (
+            <div className="my-auto text-center border-4 border-black bg-white p-6 shadow-[4px_4px_0px_0px_#000000] active:translate-x-[1px] active:translate-y-[1px] z-10 relative">
+              <span className="font-['Anton',sans-serif] text-4xl md:text-5xl lg:text-6xl text-[#281812] uppercase block tracking-wider">
+                {heroConfig?.title || "STANDUPINDO"}
+              </span>
+              <span className="font-['Anton',sans-serif] text-3xl md:text-4xl text-[#FF4500] uppercase block tracking-widest mt-1">
+                {heroConfig?.subtitle || "TIMIKA CHAPTER"}
+              </span>
+              <p className="font-['Space_Mono',monospace] text-xs uppercase tracking-widest text-[#5C4037] mt-3 border-t-2 border-black pt-2">
+                {heroConfig?.badge || "SOLID • SPONTAN • SAKIT PERUT"}
+              </p>
+            </div>
+          )}
 
-          <div className="flex justify-between items-end">
-            <span className="font-['Space_Mono',monospace] text-xs font-bold text-[#5C4037]">
+          {/* Bottom Indicators */}
+          <div className="flex justify-between items-end z-10 relative">
+            <span
+              className={`font-['Space_Mono',monospace] text-xs font-bold ${
+                hasCustomImage ? "text-white" : "text-[#5C4037]"
+              }`}
+            >
               STAGE VOL. 04
             </span>
-            <span className="font-['Space_Mono',monospace] text-xs font-bold text-[#281812] underline decoration-2">
+            <span
+              className={`font-['Space_Mono',monospace] text-xs font-bold underline decoration-2 ${
+                hasCustomImage ? "text-[#FF4500]" : "text-[#281812]"
+              }`}
+            >
               LIVE RAW COMEDY
             </span>
           </div>
