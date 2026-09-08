@@ -6,9 +6,15 @@ import { adminNavItems } from "../config/nav";
 
 interface HeaderProps {
   onToggleSidebar: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export function Header({ onToggleSidebar }: HeaderProps) {
+export function Header({
+  onToggleSidebar,
+  isCollapsed,
+  onToggleCollapse,
+}: HeaderProps) {
   const pathname = usePathname();
 
   // Determine dynamic title from nav config
@@ -25,8 +31,9 @@ export function Header({ onToggleSidebar }: HeaderProps) {
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30">
-      {/* Left: Mobile Toggle & Dynamic Title */}
+      {/* Left: Toggle & Dynamic Title */}
       <div className="flex items-center gap-3">
+        {/* Mobile menu toggle */}
         <button
           type="button"
           onClick={onToggleSidebar}

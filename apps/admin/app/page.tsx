@@ -137,7 +137,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 2. Visual Activity Chart */}
+      {/* 2. Visual Activity Chart: Dual-Bar Performance with Y-Axis & Tooltip */}
       <div className="bg-white border border-gray-200 p-6 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-gray-100">
           <div>
@@ -145,45 +145,91 @@ export default function DashboardPage() {
               Performa Partisipasi Panggung Bulanan
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Statistik kehadiran penonton dan keaktifan komika di panggung Timika
+              Statistik kehadiran penonton dan keaktifan pementasan komika di panggung Timika
             </p>
           </div>
-          <div className="flex items-center gap-4 text-xs font-medium text-gray-600">
+          <div className="flex items-center gap-5 text-xs font-medium text-gray-600">
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 bg-gray-900 rounded-xs" />
+              <span className="w-3 h-3 bg-gray-900 rounded-t-xs" />
               <span>Estimasi Penonton</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 bg-orange-200 rounded-xs" />
+              <span className="w-3 h-3 bg-[#FF4500] rounded-t-xs" />
               <span>Pementasan Selesai</span>
             </div>
           </div>
         </div>
 
-        <div className="mt-6 pt-2">
-          <div className="h-48 flex items-end justify-between gap-3 sm:gap-6 px-2">
-            {monthlyActivityMetrics.map((item) => {
-              const heightPercent = (item.audience / maxAudience) * 100;
-              return (
-                <div
-                  key={item.month}
-                  className="flex-1 flex flex-col items-center gap-2 group"
-                >
-                  <div className="text-[11px] text-gray-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                    {item.audience}
-                  </div>
-                  <div className="w-full max-w-[44px] flex items-end justify-center h-36 bg-gray-50 border border-gray-100 p-1">
+        {/* Chart Body with Left Y-Axis and Dual-Bar Grid */}
+        <div className="mt-6 pt-4">
+          <div className="relative h-64 flex">
+            {/* Y-Axis Reference Labels (Left) */}
+            <div className="w-10 pr-2 flex flex-col justify-between text-right text-[11px] font-medium text-gray-400 select-none pb-7">
+              <span>500</span>
+              <span>250</span>
+              <span>100</span>
+              <span>0</span>
+            </div>
+
+            {/* Plot Area with Grid Lines & Grouped Bars */}
+            <div className="flex-1 relative flex flex-col justify-between pb-7">
+              {/* Horizontal Background Grid Lines */}
+              <div className="absolute inset-x-0 top-0 bottom-7 flex flex-col justify-between pointer-events-none">
+                <div className="w-full border-b border-dashed border-gray-200" />
+                <div className="w-full border-b border-dashed border-gray-200" />
+                <div className="w-full border-b border-dashed border-gray-200" />
+                <div className="w-full border-b border-gray-300" />
+              </div>
+
+              {/* Grouped Bars Container */}
+              <div className="relative h-full flex items-end justify-between px-2 sm:px-6">
+                {monthlyActivityMetrics.map((item) => {
+                  // Scale calculations
+                  // Audience max scale: 500
+                  const audienceHeight = Math.min(100, Math.max(4, (item.audience / 500) * 100));
+                  // Shows max scale: 10 shows (7 shows = 70% height)
+                  const showsHeight = Math.min(100, Math.max(8, (item.shows / 10) * 100));
+
+                  return (
                     <div
-                      style={{ height: `${heightPercent}%` }}
-                      className="w-full bg-gray-900 group-hover:bg-orange-600 transition-all duration-200"
-                    />
-                  </div>
-                  <div className="text-xs font-semibold text-gray-700 mt-1">
-                    {item.month}
-                  </div>
-                </div>
-              );
-            })}
+                      key={item.month}
+                      className="flex flex-col items-center group relative h-full justify-end"
+                    >
+                      {/* Interactive Hover Tooltip Popover */}
+                      <div className="absolute -top-12 z-20 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-1 group-hover:translate-y-0 whitespace-nowrap bg-gray-950 text-white text-[11px] py-1.5 px-3 rounded shadow-lg flex items-center gap-2 border border-gray-800">
+                        <span className="font-bold text-orange-400">{item.month}</span>
+                        <span className="text-gray-400">|</span>
+                        <span>{item.audience} Penonton</span>
+                        <span className="text-gray-400">•</span>
+                        <span className="text-orange-300 font-semibold">{item.shows} Show</span>
+                      </div>
+
+                      {/* Dual Bars Pair */}
+                      <div className="flex items-end gap-1.5 sm:gap-2 px-1">
+                        {/* Bar 1: Estimasi Penonton */}
+                        <div
+                          style={{ height: `${audienceHeight}%` }}
+                          className="w-4 sm:w-6 bg-gray-900 rounded-t-xs hover:bg-black transition-all duration-200 cursor-pointer shadow-xs"
+                          title={`${item.month}: ${item.audience} Penonton`}
+                        />
+
+                        {/* Bar 2: Pementasan Selesai */}
+                        <div
+                          style={{ height: `${showsHeight}%` }}
+                          className="w-4 sm:w-6 bg-[#FF4500] rounded-t-xs hover:bg-[#e03d00] transition-all duration-200 cursor-pointer shadow-xs"
+                          title={`${item.month}: ${item.shows} Shows`}
+                        />
+                      </div>
+
+                      {/* Month Label below the bottom border */}
+                      <div className="absolute -bottom-6 text-xs font-semibold text-gray-700 group-hover:text-gray-900 transition-colors">
+                        {item.month}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       </div>
