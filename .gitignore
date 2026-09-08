@@ -40,3 +40,14 @@ yarn-error.log*
 # mcp
 mcp_config.json
 mcp_config.yaml
+
+# md ai
+ARCHITECTURE.md
+DESIGN-SYSTEM.md
+FIGMA-MCP.md
+FEATURES.md
+.antigravity/
+mcp_config.json
+
+scratch/*
+scratch
