@@ -37,44 +37,58 @@ export async function uploadAsset(
 
   // 1. Cloudinary Upload Provider
   if (provider === "cloudinary" && cloudName && apiKey && apiSecret) {
-    return new Promise<UploadResult>((resolve, reject) => {
-      const safeId =
-        filename.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9-_]/g, "_") +
-        `_${Date.now()}`;
-
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder,
-          public_id: safeId,
-          resource_type: "auto",
-        },
-        (error, result) => {
-          if (error || !result) {
-            console.error("Cloudinary upload error:", error);
-            return reject(
-              error || new Error("Cloudinary upload returned empty result")
-            );
-          }
-          resolve({
-            url: result.secure_url,
-            publicId: result.public_id,
-            size: `${(result.bytes / 1024).toFixed(1)} KB`,
-            name: filename,
-            format: result.format,
-          });
-        }
-      );
-
-      let buffer: Buffer;
-      if (Buffer.isBuffer(fileBuffer)) {
-        buffer = fileBuffer;
-      } else if (fileBuffer instanceof ArrayBuffer) {
-        buffer = Buffer.from(fileBuffer);
-      } else {
-        buffer = Buffer.from(fileBuffer.buffer, fileBuffer.byteOffset, fileBuffer.byteLength);
-      }
-      uploadStream.end(buffer);
+    cloudinary.config({
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
+      secure: true,
     });
+
+    let buffer: Buffer;
+    if (Buffer.isBuffer(fileBuffer)) {
+      buffer = fileBuffer;
+    } else if (fileBuffer instanceof ArrayBuffer) {
+      buffer = Buffer.from(fileBuffer);
+    } else {
+      buffer = Buffer.from(
+        fileBuffer.buffer,
+        fileBuffer.byteOffset,
+        fileBuffer.byteLength
+      );
+    }
+
+    const safeId =
+      filename.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9-_]/g, "_") +
+      `_${Date.now()}`;
+
+    const ext = filename.split(".").pop()?.toLowerCase() || "png";
+    const mimeMap: Record<string, string> = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+      gif: "image/gif",
+      svg: "image/svg+xml",
+      avif: "image/avif",
+      heic: "image/heic",
+    };
+    const mimeType = mimeMap[ext] || "image/jpeg";
+    const base64Uri = `data:${mimeType};base64,${buffer.toString("base64")}`;
+
+    const result = await cloudinary.uploader.upload(base64Uri, {
+      folder,
+      public_id: safeId,
+      resource_type: "auto",
+      overwrite: true,
+    });
+
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+      size: `${(result.bytes / 1024).toFixed(1)} KB`,
+      name: filename,
+      format: result.format,
+    };
   }
 
   // 2. Local / Mock Storage Provider Fallback

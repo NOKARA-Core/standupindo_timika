@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   AlertTriangle,
   Layers,
+  Loader2,
 } from "lucide-react";
 import {
   SiteAssetsConfig,
@@ -740,11 +741,21 @@ export default function MediaAssetsAdminPage() {
                   )}
 
                   <label className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 bg-gray-900 hover:bg-gray-800 text-white text-[11px] font-semibold transition-colors cursor-pointer">
-                    <Upload className="w-3 h-3" />
-                    <span>Upload Foto</span>
+                    {uploadingSlot === `comedian-${c.id}` ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3 h-3" />
+                        <span>Upload Foto</span>
+                      </>
+                    )}
                     <input
                       type="file"
                       accept="image/*"
+                      disabled={uploadingSlot === `comedian-${c.id}`}
                       className="hidden"
                       onChange={(e) => handleComedianUpload(c.id, e)}
                     />
@@ -817,11 +828,21 @@ export default function MediaAssetsAdminPage() {
                   )}
 
                   <label className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 bg-gray-900 hover:bg-gray-800 text-white text-[11px] font-semibold transition-colors cursor-pointer">
-                    <Upload className="w-3 h-3" />
-                    <span>Upload Flyer</span>
+                    {uploadingSlot === `flyer-${f.id}` ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3 h-3" />
+                        <span>Upload Flyer</span>
+                      </>
+                    )}
                     <input
                       type="file"
                       accept="image/*"
+                      disabled={uploadingSlot === `flyer-${f.id}`}
                       className="hidden"
                       onChange={(e) => handleFlyerUpload(f.id, e)}
                     />
@@ -896,11 +917,21 @@ export default function MediaAssetsAdminPage() {
                   )}
 
                   <label className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 bg-gray-900 hover:bg-gray-800 text-white text-[11px] font-semibold transition-colors cursor-pointer">
-                    <Upload className="w-3 h-3" />
-                    <span>Upload Foto Produk</span>
+                    {uploadingSlot === `merch-${m.id}` ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3 h-3" />
+                        <span>Upload Foto Produk</span>
+                      </>
+                    )}
                     <input
                       type="file"
                       accept="image/*"
+                      disabled={uploadingSlot === `merch-${m.id}`}
                       className="hidden"
                       onChange={(e) => handleMerchUpload(m.id, e)}
                     />
