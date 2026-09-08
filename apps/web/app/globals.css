@@ -9,9 +9,9 @@
   --color-brand-peach: #FFE9E3;
   --color-brand-light: #FFF8F6;
 
-  --font-anton: var(--font-anton), sans-serif;
-  --font-mono: var(--font-space-mono), monospace;
-  --font-sans: var(--font-work-sans), sans-serif;
+  --font-anton: "Anton", sans-serif;
+  --font-mono: "Space Mono", monospace;
+  --font-sans: "Work Sans", sans-serif;
 
   --shadow-brutal-xs: 1px 1px 0px 0px #000000;
   --shadow-brutal-sm: 2px 2px 0px 0px #000000;
@@ -31,7 +31,7 @@ body {
   overflow-x: hidden;
   background-color: #FDFBF7;
   color: #281812;
-  font-family: var(--font-work-sans), sans-serif;
+  font-family: "Work Sans", sans-serif;
 }
 
 * {
