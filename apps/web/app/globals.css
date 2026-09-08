@@ -13,6 +13,7 @@
   --font-mono: var(--font-space-mono), monospace;
   --font-sans: var(--font-work-sans), sans-serif;
 
+  --shadow-brutal-xs: 1px 1px 0px 0px #000000;
   --shadow-brutal-sm: 2px 2px 0px 0px #000000;
   --shadow-brutal: 4px 4px 0px 0px #000000;
   --shadow-brutal-lg: 8px 8px 0px 0px #000000;
@@ -39,4 +40,67 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* Neo-Brutalist Keyframes & Snappy Utilities */
+@keyframes punchline-recoil {
+  0% {
+    transform: rotate(0deg) scale(0.96) translate(0, 4px);
+  }
+  35% {
+    transform: rotate(-3deg) scale(1.03) translate(-2px, -4px);
+  }
+  70% {
+    transform: rotate(3deg) scale(0.99) translate(1px, 1px);
+  }
+  100% {
+    transform: rotate(2deg) scale(1) translate(0, 0);
+  }
+}
+
+@keyframes slide-in-left-snap {
+  0% {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pop-in-snap {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-punchline {
+  animation: punchline-recoil 0.4s cubic-bezier(0.2, 1.2, 0.4, 1) forwards;
+}
+
+.snap-transition {
+  transition: all 0.15s cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Standard Neo-Brutalist Interactive Active Class */
+.brutal-btn {
+  transition: all 0.12s cubic-bezier(0, 0, 0.2, 1);
+}
+.brutal-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px 0px #000000 !important;
+}
+
+.brutal-card {
+  transition: all 0.15s cubic-bezier(0, 0, 0.2, 1);
+}
+.brutal-card:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px 0px #000000 !important;
 }

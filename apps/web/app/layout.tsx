@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Anton, Space_Mono, Work_Sans } from "next/font/google";
+import { FloatingSocials } from "../src/components/FloatingSocials";
 import "./globals.css";
 
 const anton = Anton({
@@ -36,9 +37,10 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body
-        className={`${anton.variable} ${spaceMono.variable} ${workSans.variable} font-sans antialiased bg-[#FDFBF7] text-[#281812] selection:bg-[#FF4500] selection:text-white`}
+        className={`${anton.variable} ${spaceMono.variable} ${workSans.variable} font-sans antialiased bg-[#FDFBF7] text-[#281812] selection:bg-[#FF4500] selection:text-white relative`}
       >
         {children}
+        <FloatingSocials />
       </body>
     </html>
   );
