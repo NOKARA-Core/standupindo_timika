@@ -38,7 +38,7 @@ export function HeroSection() {
         </div>
 
         {/* Right Column: Hero Visual Frame */}
-        <div className="w-full max-w-[548px] h-[380px] md:h-[480px] lg:h-[500px] mx-auto bg-[#FFF8F6] border-2 border-black shadow-[8px_8px_0px_0px_#000000] relative overflow-hidden flex flex-col justify-between p-6">
+        <div className="w-full max-w-[548px] h-[380px] md:h-[480px] lg:h-[500px] mx-auto bg-[#FFF8F6] border-2 border-black shadow-[8px_8px_0px_0px_#000000] relative overflow-hidden flex flex-col justify-between p-6 -rotate-1 hover:rotate-0 transition-transform duration-200">
           {/* Neo-brutalist graphic card badge */}
           <div className="flex justify-between items-start">
             <span className="px-3 py-1 bg-black text-white font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-widest">
