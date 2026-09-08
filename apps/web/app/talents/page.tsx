@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Navbar } from "../../src/components/Navbar";
 import { Footer } from "../../src/components/Footer";
+import { AnimateReveal } from "../../src/components/AnimateReveal";
 import { Search, UserCheck } from "lucide-react";
 
 interface Comedian {
@@ -94,57 +95,61 @@ export default function TalentsPage() {
 
       <main className="flex-1 py-16 px-6 md:px-12 lg:px-20 max-w-[1280px] mx-auto w-full">
         {/* Page Header */}
-        <div className="border-b-4 border-black pb-8 mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div>
-            <div className="inline-block px-3 py-1 bg-black text-white font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-widest mb-3">
-              ROSTER TIMIKA
+        <AnimateReveal variant="slide-left" durationMs={650}>
+          <div className="border-b-4 border-black pb-8 mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <div className="inline-block px-3 py-1 bg-black text-white font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-widest mb-3">
+                ROSTER TIMIKA
+              </div>
+              <h1 className="font-['Anton',sans-serif] text-5xl md:text-7xl text-[#281812] uppercase tracking-tight">
+                THE LINEUP
+              </h1>
+              <p className="font-['Work_Sans',sans-serif] text-lg text-[#5C4037] mt-2 max-w-xl">
+                Komika underground Timika siap mengguncang panggung dengan set materi tanpa sensor dan punchline tajam.
+              </p>
             </div>
-            <h1 className="font-['Anton',sans-serif] text-5xl md:text-7xl text-[#281812] uppercase tracking-tight">
-              THE LINEUP
-            </h1>
-            <p className="font-['Work_Sans',sans-serif] text-lg text-[#5C4037] mt-2 max-w-xl">
-              Komika underground Timika siap mengguncang panggung dengan set materi tanpa sensor dan punchline tajam.
-            </p>
-          </div>
 
-          <div className="flex items-center gap-2 font-['Space_Mono',monospace] text-sm font-bold bg-white border-2 border-black px-4 py-2 shadow-[4px_4px_0px_0px_#000000]">
-            <UserCheck className="w-5 h-5 text-[#FF4500]" />
-            <span>{filteredComedians.length} ROSTER READY</span>
+            <div className="flex items-center gap-2 font-['Space_Mono',monospace] text-sm font-bold bg-white border-2 border-black px-4 py-2 shadow-[4px_4px_0px_0px_#000000]">
+              <UserCheck className="w-5 h-5 text-[#FF4500]" />
+              <span>{filteredComedians.length} ROSTER READY</span>
+            </div>
           </div>
-        </div>
+        </AnimateReveal>
 
         {/* Filter Bar & Search Input */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-6 mb-12">
-          {/* Category Filter Pills */}
-          <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-5 py-2.5 font-['Space_Mono',monospace] text-xs md:text-sm font-bold uppercase tracking-wider border-2 border-black cursor-pointer transition-all ${
-                  selectedCategory === cat
-                    ? "bg-[#FF4500] text-white shadow-[4px_4px_0px_0px_#000000] translate-x-0.5 translate-y-0.5"
-                    : "bg-white text-[#281812] shadow-[4px_4px_0px_0px_#000000] hover:bg-[#FFE9E3]"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+        <AnimateReveal variant="fade-up" delayMs={100} durationMs={650}>
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-6 mb-12">
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap gap-2">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-5 py-2.5 font-['Space_Mono',monospace] text-xs md:text-sm font-bold uppercase tracking-wider border-2 border-black cursor-pointer active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all ${
+                    selectedCategory === cat
+                      ? "bg-[#FF4500] text-white shadow-[4px_4px_0px_0px_#000000]"
+                      : "bg-white text-[#281812] shadow-[4px_4px_0px_0px_#000000] hover:bg-[#FFE9E3]"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
 
-          {/* Search Box */}
-          <div className="relative w-full lg:w-80">
-            <input
-              type="text"
-              placeholder="SEARCH TALENT..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border-2 border-black px-4 py-2.5 pl-10 font-['Space_Mono',monospace] text-sm text-[#281812] placeholder-[#5C4037] rounded-none focus:outline-none focus:ring-2 focus:ring-[#FF4500] shadow-[4px_4px_0px_0px_#000000]"
-            />
-            <Search className="w-4 h-4 text-[#281812] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            {/* Search Box */}
+            <div className="relative w-full lg:w-80">
+              <input
+                type="text"
+                placeholder="SEARCH TALENT..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white border-2 border-black px-4 py-2.5 pl-10 font-['Space_Mono',monospace] text-sm text-[#281812] placeholder-[#5C4037] rounded-none focus:outline-none focus:ring-2 focus:ring-[#FF4500] shadow-[4px_4px_0px_0px_#000000]"
+              />
+              <Search className="w-4 h-4 text-[#281812] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
-        </div>
+        </AnimateReveal>
 
         {/* Talent Grid */}
         {filteredComedians.length === 0 ? (
@@ -158,65 +163,68 @@ export default function TalentsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredComedians.map((comedian) => (
-              <article
+            {filteredComedians.map((comedian, index) => (
+              <AnimateReveal
                 key={comedian.id}
-                className="bg-white border-2 border-black shadow-[8px_8px_0px_0px_#000000] flex flex-col justify-between"
+                variant="fade-up"
+                delayMs={index * 75}
+                durationMs={650}
               >
-                {/* Visual Card Header (Grayscale Photo Representation) */}
-                <div className="h-64 bg-[#281812] border-b-2 border-black p-4 flex flex-col justify-between relative overflow-hidden grayscale">
-                  {/* Decorative background grid pattern */}
-                  <div className="absolute inset-0 opacity-15 bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:20px_20px]" />
+                <article className="bg-white border-2 border-black shadow-[8px_8px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000] hover:translate-x-1 hover:translate-y-1 transition-all flex flex-col justify-between h-full">
+                  {/* Visual Card Header (Grayscale Photo Representation) */}
+                  <div className="h-64 bg-[#281812] border-b-2 border-black p-4 flex flex-col justify-between relative overflow-hidden grayscale">
+                    <div className="absolute inset-0 opacity-15 bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:20px_20px]" />
 
-                  <div className="relative z-10 flex justify-between items-start">
-                    <span
-                      className={`px-3 py-1 font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-wider border border-black ${comedian.badgeColor}`}
+                    <div className="relative z-10 flex justify-between items-start">
+                      <span
+                        className={`px-3 py-1 font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-wider border border-black ${comedian.badgeColor}`}
+                      >
+                        {comedian.category}
+                      </span>
+                      <span className="font-['Space_Mono',monospace] text-xs font-bold text-white bg-black/60 px-2 py-0.5 border border-white/20">
+                        {comedian.showsCount} SHOWS
+                      </span>
+                    </div>
+
+                    <div className="relative z-10 text-center my-auto">
+                      <span className="font-['Anton',sans-serif] text-6xl text-white tracking-widest uppercase opacity-30 select-none block">
+                        STANDUP
+                      </span>
+                      <span className="font-['Anton',sans-serif] text-3xl text-white tracking-wider uppercase block mt-[-10px]">
+                        {comedian.name}
+                      </span>
+                    </div>
+
+                    <div className="relative z-10 flex justify-between items-center font-['Space_Mono',monospace] text-[10px] text-white/60 uppercase">
+                      <span>TIMIKA CHAPTER</span>
+                      <span>ACTIVE ROSTER</span>
+                    </div>
+                  </div>
+
+                  {/* Card Content */}
+                  <div className="p-6 flex flex-col justify-between flex-1 gap-6">
+                    <div>
+                      <h2 className="font-['Anton',sans-serif] text-3xl text-[#281812] uppercase tracking-wide">
+                        {comedian.name}
+                      </h2>
+                      <p className="font-['Work_Sans',sans-serif] font-medium text-sm text-[#281812] mt-1 italic border-l-2 border-[#FF4500] pl-2">
+                        &quot;{comedian.punchline}&quot;
+                      </p>
+                      <p className="font-['Work_Sans',sans-serif] text-sm text-[#5C4037] mt-3 leading-relaxed">
+                        {comedian.bio}
+                      </p>
+                    </div>
+
+                    {/* CTA Button */}
+                    <button
+                      type="button"
+                      className="w-full py-3 bg-[#FF4500] hover:bg-[#e03d00] text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all cursor-pointer"
                     >
-                      {comedian.category}
-                    </span>
-                    <span className="font-['Space_Mono',monospace] text-xs font-bold text-white bg-black/60 px-2 py-0.5 border border-white/20">
-                      {comedian.showsCount} SHOWS
-                    </span>
+                      BOOK NOW
+                    </button>
                   </div>
-
-                  <div className="relative z-10 text-center my-auto">
-                    <span className="font-['Anton',sans-serif] text-6xl text-white tracking-widest uppercase opacity-30 select-none block">
-                      STANDUP
-                    </span>
-                    <span className="font-['Anton',sans-serif] text-3xl text-white tracking-wider uppercase block mt-[-10px]">
-                      {comedian.name}
-                    </span>
-                  </div>
-
-                  <div className="relative z-10 flex justify-between items-center font-['Space_Mono',monospace] text-[10px] text-white/60 uppercase">
-                    <span>TIMIKA CHAPTER</span>
-                    <span>ACTIVE ROSTER</span>
-                  </div>
-                </div>
-
-                {/* Card Content */}
-                <div className="p-6 flex flex-col justify-between flex-1 gap-6">
-                  <div>
-                    <h2 className="font-['Anton',sans-serif] text-3xl text-[#281812] uppercase tracking-wide">
-                      {comedian.name}
-                    </h2>
-                    <p className="font-['Work_Sans',sans-serif] font-medium text-sm text-[#281812] mt-1 italic border-l-2 border-[#FF4500] pl-2">
-                      &quot;{comedian.punchline}&quot;
-                    </p>
-                    <p className="font-['Work_Sans',sans-serif] text-sm text-[#5C4037] mt-3 leading-relaxed">
-                      {comedian.bio}
-                    </p>
-                  </div>
-
-                  {/* CTA Button */}
-                  <button
-                    type="button"
-                    className="w-full py-3 bg-[#FF4500] hover:bg-[#e03d00] text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
-                  >
-                    BOOK NOW
-                  </button>
-                </div>
-              </article>
+                </article>
+              </AnimateReveal>
             ))}
           </div>
         )}

@@ -2,24 +2,25 @@
 
 import { useEffect, useRef, useState, ReactNode } from "react";
 
-interface ScrollRevealProps {
+interface AnimateRevealProps {
   children: ReactNode;
   className?: string;
-  variant?: "slide-left" | "pop-up";
+  variant?: "fade-up" | "slide-left" | "zoom-in" | "fade";
   delayMs?: number;
+  durationMs?: number;
 }
 
-export function ScrollReveal({
+export function AnimateReveal({
   children,
   className = "",
-  variant = "pop-up",
+  variant = "fade-up",
   delayMs = 0,
-}: ScrollRevealProps) {
+  durationMs = 650,
+}: AnimateRevealProps) {
   const [isVisible, setIsVisible] = useState(false);
   const domRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // If IntersectionObserver is unavailable, fallback immediately
     if (typeof window === "undefined" || !("IntersectionObserver" in window)) {
       setIsVisible(true);
       return;
@@ -35,7 +36,7 @@ export function ScrollReveal({
         });
       },
       {
-        threshold: 0.1,
+        threshold: 0.12,
         rootMargin: "0px 0px -40px 0px",
       }
     );
@@ -50,24 +51,36 @@ export function ScrollReveal({
     };
   }, []);
 
-  const variantStyles =
-    variant === "slide-left"
-      ? isVisible
-        ? "opacity-100 translate-x-0"
-        : "opacity-0 -translate-x-8"
-      : isVisible
-      ? "opacity-100 scale-100 translate-y-0"
-      : "opacity-0 scale-95 translate-y-6";
+  // Compute transform & opacity styles based on variant
+  const getVariantStyles = () => {
+    switch (variant) {
+      case "slide-left":
+        return isVisible
+          ? "opacity-100 translate-x-0"
+          : "opacity-0 -translate-x-10";
+      case "zoom-in":
+        return isVisible
+          ? "opacity-100 scale-100 translate-y-0"
+          : "opacity-0 scale-[0.96] translate-y-4";
+      case "fade":
+        return isVisible ? "opacity-100" : "opacity-0";
+      case "fade-up":
+      default:
+        return isVisible
+          ? "opacity-100 translate-y-0 scale-100"
+          : "opacity-0 translate-y-8 scale-[0.98]";
+    }
+  };
 
   return (
     <div
       ref={domRef}
       style={{
-        transitionDuration: "200ms",
-        transitionTimingFunction: "cubic-bezier(0, 0, 0.2, 1)",
+        transitionDuration: `${durationMs}ms`,
+        transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
         transitionDelay: `${delayMs}ms`,
       }}
-      className={`transition-all ${variantStyles} ${className}`}
+      className={`transition-all will-change-[transform,opacity] ${getVariantStyles()} ${className}`}
     >
       {children}
     </div>

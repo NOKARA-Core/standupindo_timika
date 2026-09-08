@@ -1,5 +1,5 @@
 import { Calendar } from "lucide-react";
-import { ScrollReveal } from "./ScrollReveal";
+import { AnimateReveal } from "./AnimateReveal";
 
 interface ScheduleItem {
   date: string;
@@ -32,8 +32,8 @@ export function ScheduleSection() {
       className="w-full bg-[#FFE9E3] py-16 px-6 md:px-12 lg:px-20 border-b-2 border-black overflow-hidden"
     >
       <div className="max-w-[1280px] mx-auto flex flex-col gap-8">
-        {/* Section Heading with slide-left snappy reveal */}
-        <ScrollReveal variant="slide-left">
+        {/* Section Heading with slide-left spring reveal */}
+        <AnimateReveal variant="slide-left" durationMs={650}>
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-black text-white flex items-center justify-center border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
               <Calendar className="w-6 h-6 text-[#FFE9E3]" />
@@ -42,12 +42,17 @@ export function ScheduleSection() {
               THE GRIND (OPEN MIC)
             </h2>
           </div>
-        </ScrollReveal>
+        </AnimateReveal>
 
         {/* Schedule List with Staggered pop-in */}
         <div className="flex flex-col gap-6">
           {scheduleList.map((item, index) => (
-            <ScrollReveal key={index} variant="pop-up" delayMs={index * 80}>
+            <AnimateReveal
+              key={index}
+              variant="fade-up"
+              delayMs={index * 90}
+              durationMs={700}
+            >
               <div className="w-full bg-white border-2 border-black p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-[6px_6px_0px_0px_#000000] hover:translate-x-1 hover:translate-y-1 hover:shadow-[3px_3px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all">
                 {/* Date */}
                 <div className="md:w-64">
@@ -76,7 +81,7 @@ export function ScheduleSection() {
                   </button>
                 </div>
               </div>
-            </ScrollReveal>
+            </AnimateReveal>
           ))}
         </div>
       </div>

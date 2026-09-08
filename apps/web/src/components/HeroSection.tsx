@@ -1,16 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Play } from "lucide-react";
 
 export function HeroSection() {
-  const [punched, setPunched] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  const triggerPunch = () => {
-    setPunched(true);
-    setTimeout(() => setPunched(false), 450);
-  };
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <section className="w-full bg-[#FDFBF7] py-16 px-6 md:px-12 lg:px-20 border-b-2 border-black overflow-hidden">
@@ -32,14 +31,14 @@ export function HeroSection() {
           <div className="flex flex-wrap items-center gap-4 pt-2">
             <Link
               href="/events"
-              className="px-8 py-3.5 bg-[#FF4500] hover:bg-[#e03d00] text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[8px_8px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_#000000] transition-all"
+              className="px-8 py-3.5 bg-[#FF4500] hover:bg-[#e03d00] text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[8px_8px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_#000000] hover:shadow-[10px_10px_0px_0px_#000000] transition-all"
             >
               GET TICKETS
             </Link>
 
             <Link
               href="/events"
-              className="px-8 py-3.5 bg-[#FFF8F6] hover:bg-[#ffece6] text-[#281812] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[8px_8px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_#000000] flex items-center gap-2 transition-all"
+              className="px-8 py-3.5 bg-[#FFF8F6] hover:bg-[#ffece6] text-[#281812] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[8px_8px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_#000000] hover:shadow-[10px_10px_0px_0px_#000000] flex items-center gap-2 transition-all"
             >
               <Play className="w-4 h-4 fill-current text-[#281812]" />
               <span>OPEN MIC</span>
@@ -47,12 +46,10 @@ export function HeroSection() {
           </div>
         </div>
 
-        {/* Right Column: Hero Visual Frame with Recoil Punch Effect */}
+        {/* Right Column: Hero Visual Frame with Recoil Punch Entrance and Spring Settling */}
         <div
-          onMouseEnter={triggerPunch}
-          onClick={triggerPunch}
-          className={`w-full max-w-[548px] h-[380px] md:h-[480px] lg:h-[500px] mx-auto bg-[#FFF8F6] border-2 border-black shadow-[8px_8px_0px_0px_#000000] relative overflow-hidden flex flex-col justify-between p-6 cursor-pointer select-none transition-transform duration-200 ${
-            punched ? "animate-punchline" : "rotate-2 hover:rotate-0"
+          className={`w-full max-w-[548px] h-[380px] md:h-[480px] lg:h-[500px] mx-auto bg-[#FFF8F6] border-2 border-black shadow-[8px_8px_0px_0px_#000000] hover:shadow-[12px_12px_0px_0px_#000000] relative overflow-hidden flex flex-col justify-between p-6 cursor-pointer select-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            mounted ? "animate-hero-entrance hover:rotate-0 hover:scale-[1.01]" : "opacity-0"
           }`}
         >
           {/* Neo-brutalist graphic card badge */}
@@ -83,7 +80,7 @@ export function HeroSection() {
               STAGE VOL. 04
             </span>
             <span className="font-['Space_Mono',monospace] text-xs font-bold text-[#281812] underline decoration-2">
-              TAP FOR PUNCHLINE
+              LIVE RAW COMEDY
             </span>
           </div>
         </div>

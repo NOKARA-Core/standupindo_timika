@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Users } from "lucide-react";
-import { ScrollReveal } from "./ScrollReveal";
+import { AnimateReveal } from "./AnimateReveal";
 
 interface Talent {
   name: string;
@@ -37,7 +37,7 @@ export function TalentGridSection() {
     >
       <div className="max-w-[1280px] mx-auto flex flex-col gap-8">
         {/* Section Heading with slide-left reveal */}
-        <ScrollReveal variant="slide-left">
+        <AnimateReveal variant="slide-left" durationMs={650}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-black text-white flex items-center justify-center border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
@@ -55,12 +55,17 @@ export function TalentGridSection() {
               VIEW ALL ROSTER →
             </Link>
           </div>
-        </ScrollReveal>
+        </AnimateReveal>
 
         {/* Talent Grid with Staggered pop-in */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {talentList.map((talent, index) => (
-            <ScrollReveal key={index} variant="pop-up" delayMs={index * 100}>
+            <AnimateReveal
+              key={index}
+              variant="fade-up"
+              delayMs={index * 110}
+              durationMs={700}
+            >
               <div className="bg-white border-2 border-black shadow-[8px_8px_0px_0px_#000000] flex flex-col justify-between hover:shadow-[4px_4px_0px_0px_#000000] hover:translate-x-1 hover:translate-y-1 transition-all">
                 {/* Card Header Frame */}
                 <div className="h-52 bg-[#FFF8F6] border-b-2 border-black p-4 flex flex-col justify-between relative overflow-hidden">
@@ -101,7 +106,7 @@ export function TalentGridSection() {
                   </Link>
                 </div>
               </div>
-            </ScrollReveal>
+            </AnimateReveal>
           ))}
         </div>
       </div>

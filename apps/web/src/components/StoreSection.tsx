@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
-import { ScrollReveal } from "./ScrollReveal";
+import { AnimateReveal } from "./AnimateReveal";
 
 interface Product {
   name: string;
@@ -34,7 +34,7 @@ export function StoreSection() {
     >
       <div className="max-w-[1280px] mx-auto flex flex-col gap-8">
         {/* Section Heading with snappy slide-left reveal */}
-        <ScrollReveal variant="slide-left">
+        <AnimateReveal variant="slide-left" durationMs={650}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-black text-white flex items-center justify-center border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
@@ -52,12 +52,17 @@ export function StoreSection() {
               EXPLORE STORE →
             </Link>
           </div>
-        </ScrollReveal>
+        </AnimateReveal>
 
         {/* Product Cards Grid with Staggered pop-in */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {products.map((product, index) => (
-            <ScrollReveal key={index} variant="pop-up" delayMs={index * 120}>
+            <AnimateReveal
+              key={index}
+              variant="fade-up"
+              delayMs={index * 130}
+              durationMs={700}
+            >
               <div className="bg-white border-2 border-black shadow-[8px_8px_0px_0px_#000000] flex flex-col md:flex-row hover:shadow-[4px_4px_0px_0px_#000000] hover:translate-x-1 hover:translate-y-1 transition-all">
                 {/* Product Visual Mock */}
                 <div className="md:w-56 h-60 md:h-auto bg-[#FFF8F6] border-b-2 md:border-b-0 md:border-r-2 border-black p-6 flex flex-col justify-between items-center text-center">
@@ -104,7 +109,7 @@ export function StoreSection() {
                   </Link>
                 </div>
               </div>
-            </ScrollReveal>
+            </AnimateReveal>
           ))}
         </div>
       </div>
