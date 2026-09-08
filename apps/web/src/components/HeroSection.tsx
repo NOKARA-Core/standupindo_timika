@@ -37,7 +37,7 @@ export function HeroSection() {
             </Link>
 
             <Link
-              href="/events"
+              href="/talents"
               className="px-8 py-3.5 bg-[#FFF8F6] hover:bg-[#ffece6] text-[#281812] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[8px_8px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_#000000] hover:shadow-[10px_10px_0px_0px_#000000] flex items-center gap-2 transition-all"
             >
               <Play className="w-4 h-4 fill-current text-[#281812]" />
