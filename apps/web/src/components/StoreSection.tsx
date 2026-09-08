@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
 
 interface Product {
@@ -32,13 +33,22 @@ export function StoreSection() {
     >
       <div className="max-w-[1280px] mx-auto flex flex-col gap-8">
         {/* Section Heading */}
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-black text-white flex items-center justify-center border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
-            <ShoppingBag className="w-6 h-6 text-[#FF4500]" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-black text-white flex items-center justify-center border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
+              <ShoppingBag className="w-6 h-6 text-[#FF4500]" />
+            </div>
+            <h2 className="font-['Anton',sans-serif] text-3xl md:text-5xl text-[#281812] uppercase tracking-wide">
+              THE MERCH
+            </h2>
           </div>
-          <h2 className="font-['Anton',sans-serif] text-3xl md:text-5xl text-[#281812] uppercase tracking-wide">
-            THE MERCH
-          </h2>
+
+          <Link
+            href="/store"
+            className="hidden md:inline-block font-['Space_Mono',monospace] text-sm font-bold text-[#FF4500] hover:text-black underline decoration-2 uppercase"
+          >
+            EXPLORE STORE →
+          </Link>
         </div>
 
         {/* Product Cards Grid */}
@@ -85,12 +95,12 @@ export function StoreSection() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  className="w-full py-3 bg-black hover:bg-[#281812] text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                <Link
+                  href="/store"
+                  className="w-full py-3 bg-black hover:bg-[#281812] text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all text-center block"
                 >
-                  ADD TO CART
-                </button>
+                  VIEW ON STORE
+                </Link>
               </div>
             </div>
           ))}

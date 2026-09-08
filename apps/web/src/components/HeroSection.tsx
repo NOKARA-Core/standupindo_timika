@@ -21,14 +21,14 @@ export function HeroSection() {
 
           <div className="flex flex-wrap items-center gap-4 pt-2">
             <Link
-              href="#schedule"
+              href="/events"
               className="px-8 py-3.5 bg-[#FF4500] hover:bg-[#e03d00] text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[8px_8px_0px_0px_#000000] active:translate-x-1 active:translate-y-1 active:shadow-[2px_2px_0px_0px_#000000] transition-all"
             >
               GET TICKETS
             </Link>
 
             <Link
-              href="#schedule"
+              href="/events"
               className="px-8 py-3.5 bg-[#FFF8F6] hover:bg-[#ffece6] text-[#281812] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[8px_8px_0px_0px_#000000] active:translate-x-1 active:translate-y-1 active:shadow-[2px_2px_0px_0px_#000000] flex items-center gap-2 transition-all"
             >
               <Play className="w-4 h-4 fill-current text-[#281812]" />
@@ -66,9 +66,12 @@ export function HeroSection() {
             <span className="font-['Space_Mono',monospace] text-xs font-bold text-[#5C4037]">
               STAGE VOL. 04
             </span>
-            <span className="font-['Space_Mono',monospace] text-xs font-bold text-[#281812] underline decoration-2">
-              EVERY WEEKEND
-            </span>
+            <Link
+              href="/events"
+              className="font-['Space_Mono',monospace] text-xs font-bold text-[#281812] underline decoration-2 hover:text-[#FF4500]"
+            >
+              VIEW SCHEDULE
+            </Link>
           </div>
         </div>
       </div>

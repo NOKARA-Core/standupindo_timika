@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Users } from "lucide-react";
 
 interface Talent {
@@ -34,14 +35,23 @@ export function TalentGridSection() {
       className="w-full bg-[#FDFBF7] py-16 px-6 md:px-12 lg:px-20 border-b-2 border-black"
     >
       <div className="max-w-[1280px] mx-auto flex flex-col gap-8">
-        {/* Section Heading */}
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-black text-white flex items-center justify-center border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
-            <Users className="w-6 h-6 text-[#FF4500]" />
+        {/* Section Heading with link to /talents */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-black text-white flex items-center justify-center border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
+              <Users className="w-6 h-6 text-[#FF4500]" />
+            </div>
+            <h2 className="font-['Anton',sans-serif] text-3xl md:text-5xl text-[#281812] uppercase tracking-wide">
+              THE LINEUP
+            </h2>
           </div>
-          <h2 className="font-['Anton',sans-serif] text-3xl md:text-5xl text-[#281812] uppercase tracking-wide">
-            THE LINEUP
-          </h2>
+
+          <Link
+            href="/talents"
+            className="hidden md:inline-block font-['Space_Mono',monospace] text-sm font-bold text-[#FF4500] hover:text-black underline decoration-2 uppercase"
+          >
+            VIEW ALL ROSTER →
+          </Link>
         </div>
 
         {/* Talent Grid */}
@@ -82,12 +92,12 @@ export function TalentGridSection() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  className="w-full py-3 bg-[#FFF8F6] hover:bg-black hover:text-white text-[#281812] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                <Link
+                  href="/talents"
+                  className="w-full py-3 bg-[#FFF8F6] hover:bg-black hover:text-white text-[#281812] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all text-center block"
                 >
                   BOOK NOW
-                </button>
+                </Link>
               </div>
             </div>
           ))}
