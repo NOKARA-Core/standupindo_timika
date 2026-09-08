@@ -100,9 +100,11 @@ export function TalentGridSection() {
 
                   <Link
                     href="/talents"
-                    className="w-full py-3 bg-[#FFF8F6] hover:bg-black hover:text-white text-[#281812] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all text-center block"
+                    className="group w-full py-3 bg-[#FFF8F6] hover:bg-black text-[#281812] hover:text-[#ffffff] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all text-center block"
                   >
-                    BOOK NOW
+                    <span className="text-[#281812] group-hover:text-[#ffffff] transition-colors">
+                      BOOK NOW
+                    </span>
                   </Link>
                 </div>
               </div>

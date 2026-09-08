@@ -205,10 +205,12 @@ export default function EventsPage() {
                     href={event.taptapUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full lg:w-auto px-6 py-3.5 bg-black hover:bg-[#FF4500] text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] flex items-center justify-center gap-2 transition-all"
+                    className="group w-full lg:w-auto px-6 py-3.5 bg-black hover:bg-[#FF4500] text-[#ffffff] hover:text-[#000000] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] flex items-center justify-center gap-2 transition-all"
                   >
-                    <span>{event.type === "OPEN MIC" ? "RSVP SLOT" : "GET TICKETS"}</span>
-                    <ExternalLink className="w-4 h-4" />
+                    <span className="text-[#ffffff] group-hover:text-[#000000] transition-colors">
+                      {event.type === "OPEN MIC" ? "RSVP SLOT" : "GET TICKETS"}
+                    </span>
+                    <ExternalLink className="w-4 h-4 text-[#ffffff] group-hover:text-[#000000] transition-colors" />
                   </a>
                 </div>
               </article>

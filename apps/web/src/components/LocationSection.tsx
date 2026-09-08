@@ -68,10 +68,12 @@ export function LocationSection() {
                     href={gmapsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full bg-black text-white font-['Space_Mono',monospace] px-4 py-3.5 uppercase tracking-wider font-bold border-2 border-black shadow-[4px_4px_0px_0px_#FF4500] hover:bg-[#FF4500] hover:text-black active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className="group w-full bg-black hover:bg-[#FF4500] text-[#ffffff] hover:text-[#000000] font-['Space_Mono',monospace] px-4 py-3.5 uppercase tracking-wider font-bold border-2 border-black shadow-[4px_4px_0px_0px_#FF4500] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <span>OPEN IN GOOGLE MAPS</span>
-                    <ExternalLink className="w-4 h-4" />
+                    <span className="text-[#ffffff] group-hover:text-[#000000] transition-colors">
+                      OPEN IN GOOGLE MAPS
+                    </span>
+                    <ExternalLink className="w-4 h-4 text-[#ffffff] group-hover:text-[#000000] transition-colors" />
                   </a>
                 </div>
               </div>

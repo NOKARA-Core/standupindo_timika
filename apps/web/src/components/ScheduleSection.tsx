@@ -75,9 +75,9 @@ export function ScheduleSection() {
                 <div>
                   <button
                     type="button"
-                    className="px-6 py-2 bg-black hover:bg-[#281812] text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all cursor-pointer"
+                    className="px-6 py-2 bg-black hover:bg-[#FF4500] text-[#ffffff] hover:text-black font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all cursor-pointer"
                   >
-                    RSVP
+                    <span className="text-[#ffffff] hover:text-black">RSVP</span>
                   </button>
                 </div>
               </div>

@@ -215,12 +215,11 @@ export default function TalentsPage() {
                       </p>
                     </div>
 
-                    {/* CTA Button */}
                     <button
                       type="button"
-                      className="w-full py-3 bg-[#FF4500] hover:bg-[#e03d00] text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all cursor-pointer"
+                      className="w-full py-3 bg-[#FF4500] hover:bg-[#281812] text-[#ffffff] hover:text-[#ffffff] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all cursor-pointer"
                     >
-                      BOOK NOW
+                      <span className="text-[#ffffff]">BOOK NOW</span>
                     </button>
                   </div>
                 </article>
