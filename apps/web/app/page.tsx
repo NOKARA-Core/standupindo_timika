@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Navbar } from "../src/components/Navbar";
 import { HeroSection } from "../src/components/HeroSection";
 import { ScheduleSection } from "../src/components/ScheduleSection";
@@ -7,10 +10,26 @@ import { StoreSection } from "../src/components/StoreSection";
 import { PartnersSection } from "../src/components/PartnersSection";
 import { LocationSection } from "../src/components/LocationSection";
 import { Footer } from "../src/components/Footer";
-import { getSiteConfig } from "../src/lib/site-config.server";
+import {
+  SiteAssetsConfig,
+  defaultSiteConfig,
+  getSiteConfig,
+} from "../src/lib/site-config";
 
-export default async function Home() {
-  const siteConfig = await getSiteConfig();
+export default function Home() {
+  const [siteConfig, setSiteConfig] = useState<SiteAssetsConfig>(defaultSiteConfig);
+
+  useEffect(() => {
+    let isMounted = true;
+    getSiteConfig().then((cfg) => {
+      if (isMounted && cfg) {
+        setSiteConfig(cfg);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] flex flex-col selection:bg-[#FF4500] selection:text-white">

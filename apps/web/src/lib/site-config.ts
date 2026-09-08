@@ -128,3 +128,43 @@ export const defaultSiteConfig: SiteAssetsConfig = {
     },
   ],
 };
+
+export async function getSiteConfig(): Promise<SiteAssetsConfig> {
+  // During next build phase or when offline, fallback immediately to default static assets
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return defaultSiteConfig;
+  }
+
+  try {
+    const adminUrl =
+      process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:5001";
+    const res = await fetch(`${adminUrl}/api/site-config`, {
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const data = (await res.json()) as Partial<SiteAssetsConfig>;
+      if (data && data.useDynamicAssets) {
+        return {
+          useDynamicAssets: true,
+          hero: { ...defaultSiteConfig.hero, ...(data.hero || {}) },
+          comedians:
+            data.comedians && data.comedians.length > 0
+              ? data.comedians
+              : defaultSiteConfig.comedians,
+          flyers:
+            data.flyers && data.flyers.length > 0
+              ? data.flyers
+              : defaultSiteConfig.flyers,
+          merch:
+            data.merch && data.merch.length > 0
+              ? data.merch
+              : defaultSiteConfig.merch,
+        };
+      }
+    }
+  } catch {
+    // If admin is unreachable, smoothly return default static assets
+  }
+
+  return defaultSiteConfig;
+}
