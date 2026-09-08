@@ -39,61 +39,71 @@ export function Sidebar({
       >
         <div className="flex flex-col h-full overflow-y-auto">
           {/* Top Brand Header with Official Logo & Collapse Toggle */}
-          <div className="h-16 px-4 border-b border-gray-200 flex items-center justify-between shrink-0">
-            <Link
-              href="/"
-              onClick={onClose}
-              className={`flex items-center gap-2.5 group overflow-hidden ${
-                isCollapsed ? "justify-center w-full" : ""
-              }`}
-            >
-              <div className="h-9 w-9 p-1 bg-white border border-gray-200 shadow-xs flex items-center justify-center shrink-0">
-                <Image
-                  src="/logo-stup_timika.png"
-                  alt="StandUp INDO Timika"
-                  width={32}
-                  height={32}
-                  className="h-7 w-auto object-contain"
-                  priority
-                />
+          <div className="h-16 px-3.5 border-b border-gray-200 flex items-center shrink-0">
+            {isCollapsed ? (
+              /* When Collapsed: Center toggle button cleanly in the 20-width column */
+              <div className="w-full flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={onToggleCollapse}
+                  className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-sm transition-colors cursor-pointer"
+                  title="Expand Sidebar"
+                  aria-label="Expand Sidebar"
+                >
+                  <PanelLeftOpen className="w-5 h-5" />
+                </button>
               </div>
+            ) : (
+              /* When Expanded: Logo & branding on left, toggle on right */
+              <div className="w-full flex items-center justify-between">
+                <Link
+                  href="/"
+                  onClick={onClose}
+                  className="flex items-center gap-2.5 group overflow-hidden"
+                >
+                  <div className="h-9 w-9 p-1 bg-white border border-gray-200 shadow-xs flex items-center justify-center shrink-0">
+                    <Image
+                      src="/logo-stup_timika.png"
+                      alt="StandUp INDO Timika"
+                      width={32}
+                      height={32}
+                      className="h-7 w-auto object-contain"
+                      priority
+                    />
+                  </div>
 
-              {!isCollapsed && (
-                <div className="flex flex-col truncate">
-                  <span className="font-bold text-xs uppercase tracking-wider text-gray-900 leading-tight truncate">
-                    STANDUP TIMIKA
-                  </span>
-                  <span className="text-[10px] text-orange-600 font-semibold uppercase tracking-widest leading-none mt-0.5">
-                    ADMIN PORTAL
-                  </span>
-                </div>
-              )}
-            </Link>
+                  <div className="flex flex-col truncate">
+                    <span className="font-bold text-xs uppercase tracking-wider text-gray-900 leading-tight truncate">
+                      STANDUP TIMIKA
+                    </span>
+                    <span className="text-[10px] text-orange-600 font-semibold uppercase tracking-widest leading-none mt-0.5">
+                      ADMIN PORTAL
+                    </span>
+                  </div>
+                </Link>
 
-            {/* Desktop Collapse Button */}
-            <button
-              type="button"
-              onClick={onToggleCollapse}
-              className="hidden md:flex p-1.5 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-xs transition-colors cursor-pointer"
-              title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-              aria-label={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-            >
-              {isCollapsed ? (
-                <PanelLeftOpen className="w-4 h-4" />
-              ) : (
-                <PanelLeftClose className="w-4 h-4" />
-              )}
-            </button>
+                {/* Desktop Collapse Button */}
+                <button
+                  type="button"
+                  onClick={onToggleCollapse}
+                  className="hidden md:flex p-1.5 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-xs transition-colors cursor-pointer"
+                  title="Collapse Sidebar"
+                  aria-label="Collapse Sidebar"
+                >
+                  <PanelLeftClose className="w-4 h-4" />
+                </button>
 
-            {/* Mobile Close Button */}
-            <button
-              type="button"
-              onClick={onClose}
-              className="md:hidden text-gray-400 hover:text-gray-900 p-1 transition-colors"
-              aria-label="Close Sidebar"
-            >
-              <X className="w-5 h-5" />
-            </button>
+                {/* Mobile Close Button */}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="md:hidden text-gray-400 hover:text-gray-900 p-1 transition-colors"
+                  aria-label="Close Sidebar"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Navigation Items */}
