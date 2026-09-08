@@ -27,6 +27,8 @@
     "packages/*"
   ],
   "dependencies": {
-    "postgres": "^3.4.9"
+    "admin": "^1.4.1",
+    "postgres": "^3.4.9",
+    "recharts": "^3.10.1"
   }
 }

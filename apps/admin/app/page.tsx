@@ -17,9 +17,11 @@ import {
   initialEvents,
   initialComedians,
   initialRegistrations,
-  monthlyActivityMetrics,
   OpenMicRegistration,
 } from "../src/lib/mock-data";
+import { MonthlyPerformanceChart } from "../src/components/analytics/MonthlyPerformanceChart";
+import { ComedyStyleChart } from "../src/components/analytics/ComedyStyleChart";
+import { ShowCapacityMetric } from "../src/components/analytics/ShowCapacityMetric";
 
 export default function DashboardPage() {
   const [registrations, setRegistrations] =
@@ -46,9 +48,6 @@ export default function DashboardPage() {
     );
   };
 
-  const maxAudience = Math.max(
-    ...monthlyActivityMetrics.map((m) => m.audience)
-  );
 
   return (
     <div className="space-y-8">
@@ -137,101 +136,22 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 2. Visual Activity Chart: Dual-Bar Performance with Y-Axis & Tooltip */}
-      <div className="bg-white border border-gray-200 p-6 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-gray-100">
-          <div>
-            <h2 className="text-base font-bold text-gray-900">
-              Performa Partisipasi Panggung Bulanan
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Statistik kehadiran penonton dan keaktifan pementasan komika di panggung Timika
-            </p>
-          </div>
-          <div className="flex items-center gap-5 text-xs font-medium text-gray-600">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 bg-gray-900 rounded-t-xs" />
-              <span>Estimasi Penonton</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 bg-[#FF4500] rounded-t-xs" />
-              <span>Pementasan Selesai</span>
-            </div>
-          </div>
+      {/* 2. Visual Analytics Section: Composed Performance Chart & Secondary Metrics */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main 2-Col: Monthly Performance ComposedChart */}
+        <div className="lg:col-span-2">
+          <MonthlyPerformanceChart />
         </div>
 
-        {/* Chart Body with Left Y-Axis and Dual-Bar Grid */}
-        <div className="mt-6 pt-4">
-          <div className="relative h-64 flex">
-            {/* Y-Axis Reference Labels (Left) */}
-            <div className="w-10 pr-2 h-[220px] flex flex-col justify-between text-right text-[11px] font-medium text-gray-400 select-none">
-              <span>500</span>
-              <span>250</span>
-              <span>100</span>
-              <span>0</span>
-            </div>
-
-            {/* Plot Area with Grid Lines & Grouped Bars */}
-            <div className="flex-1 relative h-[220px]">
-              {/* Horizontal Background Grid Lines */}
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                <div className="w-full border-b border-dashed border-gray-200" />
-                <div className="w-full border-b border-dashed border-gray-200" />
-                <div className="w-full border-b border-dashed border-gray-200" />
-                <div className="w-full border-b border-gray-300" />
-              </div>
-
-              {/* Grouped Bars Container */}
-              <div className="relative h-full flex items-end justify-between px-2 sm:px-6">
-                {monthlyActivityMetrics.map((item) => {
-                  // Scale calculations
-                  // Audience max scale: 500
-                  const audiencePercent = Math.min(100, Math.max(6, Math.round((item.audience / 500) * 100)));
-                  // Shows max scale: 10 shows (7 shows = 70% height)
-                  const showsPercent = Math.min(100, Math.max(8, Math.round((item.shows / 10) * 100)));
-
-                  return (
-                    <div
-                      key={item.month}
-                      className="flex flex-col items-center group relative h-full justify-end"
-                    >
-                      {/* Interactive Hover Tooltip Popover */}
-                      <div className="absolute -top-10 z-30 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 transform translate-y-1 group-hover:translate-y-0 whitespace-nowrap bg-gray-950 text-white text-[11px] py-1.5 px-3 rounded shadow-lg flex items-center gap-2 border border-gray-800">
-                        <span className="font-bold text-orange-400">{item.month}</span>
-                        <span className="text-gray-400">|</span>
-                        <span>{item.audience} Penonton</span>
-                        <span className="text-gray-400">•</span>
-                        <span className="text-orange-300 font-semibold">{item.shows} Show</span>
-                      </div>
-
-                      {/* Dual Bars Pair */}
-                      <div className="flex items-end gap-1.5 sm:gap-2 px-1 h-full">
-                        {/* Bar 1: Estimasi Penonton */}
-                        <div
-                          style={{ height: `${audiencePercent}%` }}
-                          className="w-4 sm:w-6 bg-gray-900 rounded-t-xs hover:bg-black transition-all duration-200 cursor-pointer shadow-xs shrink-0"
-                          title={`${item.month}: ${item.audience} Penonton`}
-                        />
-
-                        {/* Bar 2: Pementasan Selesai */}
-                        <div
-                          style={{ height: `${showsPercent}%` }}
-                          className="w-4 sm:w-6 bg-[#FF4500] rounded-t-xs hover:bg-[#e03d00] transition-all duration-200 cursor-pointer shadow-xs shrink-0"
-                          title={`${item.month}: ${item.shows} Shows`}
-                        />
-                      </div>
-
-                      {/* Month Label below the baseline */}
-                      <div className="absolute -bottom-6 text-xs font-semibold text-gray-700 group-hover:text-gray-900 transition-colors">
-                        {item.month}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+        {/* 1-Col: Comedy Style Donut Breakdown */}
+        <div className="lg:col-span-1">
+          <ComedyStyleChart />
         </div>
+      </div>
+
+      {/* Show Capacity & Ticketing Conversion Metric Banner/Card */}
+      <div>
+        <ShowCapacityMetric />
       </div>
 
       {/* 3. Upcoming Shows & Approval List */}
