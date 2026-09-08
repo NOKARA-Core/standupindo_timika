@@ -36,3 +36,7 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+# mcp
+mcp_config.json
+mcp_config.yaml
