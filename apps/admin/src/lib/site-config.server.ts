@@ -13,7 +13,8 @@ export async function getSiteConfig(): Promise<SiteAssetsConfig> {
     const rows =
       await sql`SELECT data FROM site_assets_config WHERE id = 'current' LIMIT 1`;
     if (rows && rows.length > 0 && rows[0]?.data) {
-      const data = rows[0].data as Partial<SiteAssetsConfig>;
+      const rawData = rows[0].data;
+      const data = (typeof rawData === "string" ? JSON.parse(rawData) : rawData) as Partial<SiteAssetsConfig>;
       return {
         useDynamicAssets: Boolean(data.useDynamicAssets),
         hero: { ...defaultSiteConfig.hero, ...(data.hero || {}) },

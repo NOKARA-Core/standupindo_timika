@@ -51,3 +51,5 @@ mcp_config.json
 
 scratch/*
 scratch
+
+.env.example
