@@ -37,6 +37,37 @@ export default function MediaAssetsAdminPage() {
   const [assets, setAssets] = useState<MediaAsset[]>(initialMediaAssets);
   const [selectedType, setSelectedType] = useState<string>("ALL");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
+
+  // Client helper for uploading to /api/upload (Cloudinary / Local Provider)
+  const uploadFileToServer = async (
+    file: File,
+    folder: string = "stup-timika"
+  ) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("folder", folder);
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(
+        errorData.error || "Gagal mengunggah file ke Cloudinary storage"
+      );
+    }
+
+    const data = await res.json();
+    return {
+      url: data.url as string,
+      publicId: data.publicId as string,
+      size: data.size || `${(file.size / 1024).toFixed(1)} KB`,
+      name: file.name,
+    };
+  };
 
   // Load configuration from API on mount
   useEffect(() => {
@@ -130,29 +161,36 @@ export default function MediaAssetsAdminPage() {
   const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const uploaded = await uploadAsset(file);
-      const updated: SiteAssetsConfig = {
-        ...siteConfig,
-        hero: {
-          ...siteConfig.hero,
-          url: uploaded.url,
-          isCustom: true,
-        },
-      };
-      persistConfig(updated);
+      setUploadingSlot("hero");
+      try {
+        const uploaded = await uploadFileToServer(file, "stup-timika/hero");
+        const updated: SiteAssetsConfig = {
+          ...siteConfig,
+          hero: {
+            ...siteConfig.hero,
+            url: uploaded.url,
+            isCustom: true,
+          },
+        };
+        await persistConfig(updated);
 
-      // Also register to media explorer
-      setAssets((prev) => [
-        {
-          id: `med-${Date.now()}`,
-          name: file.name,
-          type: "BANNER",
-          size: `${(file.size / 1024).toFixed(1)} KB`,
-          url: uploaded.url,
-          uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
-        },
-        ...prev,
-      ]);
+        // Also register to media explorer
+        setAssets((prev) => [
+          {
+            id: `med-${Date.now()}`,
+            name: file.name,
+            type: "BANNER",
+            size: uploaded.size,
+            url: uploaded.url,
+            uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
+          },
+          ...prev,
+        ]);
+      } catch (err: any) {
+        alert(err.message || "Gagal mengunggah foto hero");
+      } finally {
+        setUploadingSlot(null);
+      }
     }
   };
 
@@ -163,26 +201,33 @@ export default function MediaAssetsAdminPage() {
   ) => {
     const file = e.target.files?.[0];
     if (file) {
-      const uploaded = await uploadAsset(file);
-      const updated: SiteAssetsConfig = {
-        ...siteConfig,
-        comedians: siteConfig.comedians.map((c) =>
-          c.id === id ? { ...c, avatarUrl: uploaded.url, isCustom: true } : c
-        ),
-      };
-      persistConfig(updated);
+      setUploadingSlot(`comedian-${id}`);
+      try {
+        const uploaded = await uploadFileToServer(file, "stup-timika/comedians");
+        const updated: SiteAssetsConfig = {
+          ...siteConfig,
+          comedians: siteConfig.comedians.map((c) =>
+            c.id === id ? { ...c, avatarUrl: uploaded.url, isCustom: true } : c
+          ),
+        };
+        await persistConfig(updated);
 
-      setAssets((prev) => [
-        {
-          id: `med-${Date.now()}`,
-          name: file.name,
-          type: "HEADSHOT",
-          size: `${(file.size / 1024).toFixed(1)} KB`,
-          url: uploaded.url,
-          uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
-        },
-        ...prev,
-      ]);
+        setAssets((prev) => [
+          {
+            id: `med-${Date.now()}`,
+            name: file.name,
+            type: "HEADSHOT",
+            size: uploaded.size,
+            url: uploaded.url,
+            uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
+          },
+          ...prev,
+        ]);
+      } catch (err: any) {
+        alert(err.message || "Gagal mengunggah foto komika");
+      } finally {
+        setUploadingSlot(null);
+      }
     }
   };
 
@@ -193,26 +238,33 @@ export default function MediaAssetsAdminPage() {
   ) => {
     const file = e.target.files?.[0];
     if (file) {
-      const uploaded = await uploadAsset(file);
-      const updated: SiteAssetsConfig = {
-        ...siteConfig,
-        flyers: siteConfig.flyers.map((f) =>
-          f.id === id ? { ...f, flyerUrl: uploaded.url, isCustom: true } : f
-        ),
-      };
-      persistConfig(updated);
+      setUploadingSlot(`flyer-${id}`);
+      try {
+        const uploaded = await uploadFileToServer(file, "stup-timika/flyers");
+        const updated: SiteAssetsConfig = {
+          ...siteConfig,
+          flyers: siteConfig.flyers.map((f) =>
+            f.id === id ? { ...f, flyerUrl: uploaded.url, isCustom: true } : f
+          ),
+        };
+        await persistConfig(updated);
 
-      setAssets((prev) => [
-        {
-          id: `med-${Date.now()}`,
-          name: file.name,
-          type: "FLYER",
-          size: `${(file.size / 1024).toFixed(1)} KB`,
-          url: uploaded.url,
-          uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
-        },
-        ...prev,
-      ]);
+        setAssets((prev) => [
+          {
+            id: `med-${Date.now()}`,
+            name: file.name,
+            type: "FLYER",
+            size: uploaded.size,
+            url: uploaded.url,
+            uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
+          },
+          ...prev,
+        ]);
+      } catch (err: any) {
+        alert(err.message || "Gagal mengunggah flyer event");
+      } finally {
+        setUploadingSlot(null);
+      }
     }
   };
 
@@ -223,26 +275,65 @@ export default function MediaAssetsAdminPage() {
   ) => {
     const file = e.target.files?.[0];
     if (file) {
-      const uploaded = await uploadAsset(file);
-      const updated: SiteAssetsConfig = {
-        ...siteConfig,
-        merch: siteConfig.merch.map((m) =>
-          m.id === id ? { ...m, imageUrl: uploaded.url, isCustom: true } : m
-        ),
-      };
-      persistConfig(updated);
+      setUploadingSlot(`merch-${id}`);
+      try {
+        const uploaded = await uploadFileToServer(file, "stup-timika/merch");
+        const updated: SiteAssetsConfig = {
+          ...siteConfig,
+          merch: siteConfig.merch.map((m) =>
+            m.id === id ? { ...m, imageUrl: uploaded.url, isCustom: true } : m
+          ),
+        };
+        await persistConfig(updated);
 
-      setAssets((prev) => [
-        {
-          id: `med-${Date.now()}`,
-          name: file.name,
-          type: "DOCUMENTATION",
-          size: `${(file.size / 1024).toFixed(1)} KB`,
-          url: uploaded.url,
-          uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
-        },
-        ...prev,
-      ]);
+        setAssets((prev) => [
+          {
+            id: `med-${Date.now()}`,
+            name: file.name,
+            type: "DOCUMENTATION",
+            size: uploaded.size,
+            url: uploaded.url,
+            uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
+          },
+          ...prev,
+        ]);
+      } catch (err: any) {
+        alert(err.message || "Gagal mengunggah foto produk merch");
+      } finally {
+        setUploadingSlot(null);
+      }
+    }
+  };
+
+  // General explorer file upload handler
+  const handleGeneralUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadingSlot("general");
+      try {
+        const uploaded = await uploadFileToServer(file, "stup-timika/general");
+        setAssets((prev) => [
+          {
+            id: `med-${Date.now()}`,
+            name: file.name,
+            type: file.name.includes("headshot")
+              ? "HEADSHOT"
+              : file.name.includes("flyer")
+              ? "FLYER"
+              : "BANNER",
+            size: uploaded.size,
+            url: uploaded.url,
+            uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
+          },
+          ...prev,
+        ]);
+      } catch (err: any) {
+        alert(err.message || "Gagal mengunggah file ke storage");
+      } finally {
+        setUploadingSlot(null);
+      }
     }
   };
 

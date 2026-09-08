@@ -6,7 +6,8 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "check-types": "turbo run check-types",
+    "db:check": "bun run scripts/check-db.ts"
   },
   "devDependencies": {
     "prettier": "3.9.6",
@@ -28,6 +29,7 @@
   ],
   "dependencies": {
     "admin": "^1.4.1",
+    "cloudinary": "^2.11.0",
     "postgres": "^3.4.9",
     "recharts": "^3.10.1"
   }
