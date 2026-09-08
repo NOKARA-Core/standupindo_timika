@@ -97,9 +97,9 @@ export function StoreSection() {
 
                 <Link
                   href="/store"
-                  className="w-full py-3 bg-black hover:bg-[#281812] text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all text-center block"
+                  className="group w-full py-3 bg-black text-[#ffffff] hover:bg-white hover:text-[#000000] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all text-center block"
                 >
-                  VIEW ON STORE
+                  <span className="text-[#ffffff] group-hover:text-[#000000]">VIEW ON STORE</span>
                 </Link>
               </div>
             </div>
