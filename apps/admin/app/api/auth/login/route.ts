@@ -72,6 +72,15 @@ export async function POST(request: Request) {
       maxAge: 60 * 60 * 24 * 7, // 7 days
     });
 
+    // Set role cookie for client-side RBAC and middleware routing
+    response.cookies.set("stup_admin_role", user.role || "superadmin", {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
     return response;
   } catch (error: any) {
     console.error("Auth login error:", error);

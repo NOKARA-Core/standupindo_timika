@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { RoleGuard } from "../../src/components/RoleGuard";
 import {
   DollarSign,
   ArrowUpRight,
@@ -218,7 +219,8 @@ export default function FinancesAdminPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <RoleGuard>
+      <div className="space-y-6">
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -642,5 +644,6 @@ export default function FinancesAdminPage() {
         </div>
       )}
     </div>
+    </RoleGuard>
   );
 }

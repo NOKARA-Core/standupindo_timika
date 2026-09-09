@@ -4,8 +4,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { adminNavItems } from "../config/nav";
+import { adminNavItems, filterNavByRole } from "../config/nav";
 import { LogoutButton } from "./LogoutButton";
+import { useAuth } from "../context/AuthContext";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -21,6 +22,8 @@ export function Sidebar({
   onToggleCollapse,
 }: SidebarProps) {
   const pathname = usePathname();
+  const { role, user, switchRole } = useAuth();
+  const visibleNavItems = filterNavByRole(adminNavItems, role);
 
   return (
     <>
@@ -107,9 +110,9 @@ export function Sidebar({
             )}
           </div>
 
-          {/* Navigation Items */}
+          {/* Navigation Items - Filtered by RBAC Role */}
           <nav className="p-3 space-y-1.5 flex-1">
-            {adminNavItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const isActive =
                 item.href === "/"
@@ -172,24 +175,40 @@ export function Sidebar({
             })}
           </nav>
 
-          {/* Sidebar Footer: User Card & Logout */}
+          {/* Sidebar Footer: User Card, Role Badge & Logout */}
           <div className="p-3 border-t border-gray-200 bg-gray-50/50 shrink-0 space-y-2">
             <div
               className={`flex items-center gap-3 px-1 py-1 ${
                 isCollapsed ? "justify-center" : ""
               }`}
             >
-              <div className="w-8 h-8 bg-gray-900 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                MA
+              <div className="w-8 h-8 bg-gray-900 text-white flex items-center justify-center text-xs font-bold shrink-0 border border-black shadow-[1px_1px_0px_0px_#000]">
+                {role === "superadmin" ? "SA" : "CR"}
               </div>
               {!isCollapsed && (
-                <div className="flex flex-col min-w-0">
-                  <span className="text-xs font-semibold text-gray-900 truncate">
-                    Ketua bossQ 
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-xs font-bold text-gray-900 truncate">
+                    {user?.name || (role === "superadmin" ? "Administrator" : "Curator Konten")}
                   </span>
-                  <span className="text-[10px] text-gray-500 truncate">
-                    Super Administrator
-                  </span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span
+                      className={`text-[9px] font-mono font-bold px-1.5 py-0.2 border uppercase ${
+                        role === "superadmin"
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                          : "bg-purple-100 text-purple-800 border-purple-300"
+                      }`}
+                    >
+                      {role}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => switchRole(role === "superadmin" ? "curator" : "superadmin")}
+                      className="text-[9px] text-gray-500 hover:text-black hover:underline cursor-pointer"
+                      title="Ganti Mode Role untuk testing RBAC"
+                    >
+                      [Switch]
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

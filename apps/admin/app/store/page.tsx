@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { MerchItem } from "../api/merchandise/route";
 import MediaPickerModal from "../../src/components/MediaPickerModal";
+import { RoleGuard } from "../../src/components/RoleGuard";
 
 const CATEGORIES = ["ALL", "T-Shirt", "Hoodie", "Aksesoris", "Tiket"] as const;
 
@@ -296,7 +297,8 @@ export default function StoreAdminPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <RoleGuard>
+      <div className="space-y-8">
       {/* Toast Feedback */}
       {feedbackMessage && (
         <div
@@ -936,5 +938,6 @@ export default function StoreAdminPage() {
         title="Pilih Gambar Produk Dari Media Storage"
       />
     </div>
+    </RoleGuard>
   );
 }

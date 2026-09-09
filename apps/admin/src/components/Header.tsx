@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Menu, ExternalLink, Bell } from "lucide-react";
 import { adminNavItems } from "../config/nav";
 import { LogoutButton } from "./LogoutButton";
+import { useAuth } from "../context/AuthContext";
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -17,6 +18,7 @@ export function Header({
   onToggleCollapse,
 }: HeaderProps) {
   const pathname = usePathname();
+  const { role, user, switchRole } = useAuth();
 
   // Determine dynamic title from nav config
   const getCurrentTitle = () => {
@@ -56,6 +58,16 @@ export function Header({
 
       {/* Right: Quick Action, Notification & Avatar & Logout */}
       <div className="flex items-center gap-3 md:gap-4">
+        {/* Open Public Web with Retro Brutalism styling */}
+        <a
+          href={webUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FFF8F6] hover:bg-[#FFE9E3] text-[#FF4500] hover:text-[#D93800] border-2 border-black font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-wider shadow-[2px_2px_0px_0px_#000000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
+        >
+          <span>Live Web</span>
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
 
         {/* Notification Bell */}
         <button
@@ -67,18 +79,34 @@ export function Header({
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full ring-2 ring-white" />
         </button>
 
-        {/* User Profile Avatar */}
+        {/* User Profile Avatar & RBAC Badge */}
         <div className="flex items-center gap-2.5 pl-2 border-l border-gray-200">
-          <div className="w-8 h-8 bg-gray-900 text-white flex items-center justify-center text-xs font-bold shadow-xs">
-            MA
+          <div className="w-8 h-8 bg-gray-900 text-white flex items-center justify-center text-xs font-bold shadow-xs border border-black">
+            {role === "superadmin" ? "SA" : "CR"}
           </div>
           <div className="hidden lg:flex flex-col text-left">
             <span className="text-xs font-bold text-gray-900 leading-tight">
-              Admin
+              {user?.name || "Admin"}
             </span>
-            <span className="text-[10px] text-gray-500 leading-tight">
-              Dashboard Comedy
-            </span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span
+                className={`text-[9px] font-mono font-bold px-1.5 py-0.2 border uppercase ${
+                  role === "superadmin"
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                    : "bg-purple-100 text-purple-800 border-purple-300"
+                }`}
+              >
+                {role}
+              </span>
+              <button
+                type="button"
+                onClick={() => switchRole(role === "superadmin" ? "curator" : "superadmin")}
+                className="text-[9px] text-gray-500 hover:text-black hover:underline cursor-pointer"
+                title="Ganti role untuk simulasi RBAC"
+              >
+                [Switch Role]
+              </button>
+            </div>
           </div>
         </div>
 

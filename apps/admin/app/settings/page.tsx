@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { RoleGuard } from "../../src/components/RoleGuard";
 import {
   Shield,
   Building,
@@ -207,7 +208,8 @@ export default function SettingsAdminPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <RoleGuard>
+      <div className="space-y-6 max-w-4xl">
       {/* Header */}
       <div>
         <h2 className="text-xl font-bold text-gray-900">
@@ -758,5 +760,6 @@ export default function SettingsAdminPage() {
         </div>
       )}
     </div>
+    </RoleGuard>
   );
 }
