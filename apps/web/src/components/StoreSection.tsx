@@ -96,7 +96,7 @@ export function StoreSection({
                         <h3 className="font-['Anton',sans-serif] text-3xl text-[#281812] uppercase tracking-wide">
                           {product.name}
                         </h3>
-                        <span className="px-3 py-1 bg-[#A83300] text-white font-['Space_Mono',monospace] text-sm font-bold border-2 border-black shadow-[2px_2px_0px_0px_#000000] whitespace-nowrap">
+                        <span className="px-3 py-1 bg-[#10B981] text-black font-['Space_Mono',monospace] text-sm font-bold border-2 border-black shadow-[2px_2px_0px_0px_#000000] whitespace-nowrap">
                           {product.price}
                         </span>
                       </div>

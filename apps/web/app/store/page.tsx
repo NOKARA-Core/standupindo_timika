@@ -202,7 +202,7 @@ export default function StorePage() {
                     </div>
 
                     <div className="inline-block mb-3">
-                      <span className="px-3 py-1 bg-[#FF4500] text-white font-['Space_Mono',monospace] text-base font-bold border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
+                      <span className="px-3 py-1 bg-[#10B981] text-black font-['Space_Mono',monospace] text-base font-bold border-2 border-black shadow-[2px_2px_0px_0px_#000000]">
                         {product.price}
                       </span>
                     </div>

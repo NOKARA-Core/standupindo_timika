@@ -1321,7 +1321,7 @@ export default function MediaAssetsAdminPage() {
                   <div>
                     <div className="flex items-center justify-between pb-2 border-b border-gray-300">
                       <span className="font-bold text-xs text-gray-900">{m.name}</span>
-                      <span className="text-[11px] font-bold text-orange-600 font-mono">
+                      <span className="text-[10px] font-bold text-black bg-[#10B981] px-2 py-0.5 border border-black shadow-[1px_1px_0px_0px_#000] font-mono">
                         {m.price}
                       </span>
                     </div>
