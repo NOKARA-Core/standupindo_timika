@@ -6,17 +6,32 @@ import { Search, UserCheck, Mic2, MessageCircle } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
 import { DBComedian } from "../lib/site-config.server";
 
+import { NeoPagination } from "./NeoPagination";
+
 interface TalentsCatalogClientProps {
   comedians: DBComedian[];
   whatsappNumber: string;
 }
+
+const ITEMS_PER_PAGE = 6;
 
 export function TalentsCatalogClient({
   comedians,
   whatsappNumber,
 }: TalentsCatalogClientProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [searchQuery, setSearchQuery] = useState<string>("" );
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const handleCategoryChange = (cat: string) => {
+    setSelectedCategory(cat);
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1);
+  };
 
   // Derive unique categories dynamically from comedians, always starting with "All"
   const dynamicCategories = [
@@ -37,6 +52,12 @@ export function TalentsCatalogClient({
       (comedian.bio && comedian.bio.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesCategory && matchesSearch;
   });
+
+  const totalPages = Math.ceil(filteredComedians.length / ITEMS_PER_PAGE);
+  const paginatedComedians = filteredComedians.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   return (
     <main className="flex-1 py-16 px-6 md:px-12 lg:px-20 max-w-[1280px] mx-auto w-full">

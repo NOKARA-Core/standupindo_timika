@@ -23,7 +23,7 @@ export function ScheduleSection({ events }: ScheduleSectionProps) {
         titleUpper.includes("GRIND")
       );
     })
-    .slice(0, 4);
+    .slice(0, 3);
 
   // If no open mic events found, show top 3 of all events
   const displayList = openMicEvents.length > 0 ? openMicEvents : allEvents.slice(0, 3);
