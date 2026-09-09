@@ -4,7 +4,11 @@ import { useState } from "react";
 import { Calendar, Clock, MapPin, User, ExternalLink } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
 import { DBEvent } from "../lib/site-config.server";
-import { isValidTapTapLink, formatEventDate } from "../lib/events-utils";
+import {
+  isValidTapTapLink,
+  formatEventDate,
+  getEventDisplayStatus,
+} from "../lib/events-utils";
 
 import { NeoPagination } from "./NeoPagination";
 
@@ -102,7 +106,14 @@ export function EventsCatalogClient({ events }: EventsCatalogClientProps) {
                 typeUpper.includes("OPEN") ||
                 titleUpper.includes("OPEN MIC") ||
                 titleUpper.includes("GRIND");
-              const hasValidLink = isValidTapTapLink(event.taptapUrl);
+              const displayStatus = getEventDisplayStatus(
+                event.status,
+                event.date,
+                event.time,
+                event.taptapUrl
+              );
+              const isPassedOrClosed =
+                displayStatus === "CLOSED" || displayStatus === "EXPIRED";
 
               return (
                 <AnimateReveal
@@ -124,8 +135,16 @@ export function EventsCatalogClient({ events }: EventsCatalogClientProps) {
                         >
                           {isOpenMic ? "OPEN MIC" : "SPECIAL SHOW"}
                         </span>
-                        <span className="font-['Space_Mono',monospace] text-[11px] text-[#5C4037] font-semibold">
-                          {event.status || "PUBLISHED"}
+                        <span
+                          className={`font-['Space_Mono',monospace] text-[11px] font-bold uppercase tracking-wider ${
+                            isPassedOrClosed ? "text-gray-500" : "text-[#5C4037]"
+                          }`}
+                        >
+                          {displayStatus === "CLOSED"
+                            ? "CLOSED"
+                            : displayStatus === "EXPIRED"
+                            ? "EXPIRED"
+                            : event.status || "PUBLISHED"}
                         </span>
                       </div>
 
@@ -173,9 +192,16 @@ export function EventsCatalogClient({ events }: EventsCatalogClientProps) {
                       </div>
                     </div>
 
-                    {/* Right Action: TapTap Link OR Comic-Style Coming Soon Badge */}
+                    {/* Right Action: TapTap Link OR Comic-Style Coming Soon Badge OR Closed / Selesai */}
                     <div className="lg:w-48 flex items-center justify-start lg:justify-end">
-                      {hasValidLink && event.taptapUrl ? (
+                      {isPassedOrClosed ? (
+                        <div
+                          className="inline-flex items-center justify-center px-4 py-2 bg-gray-300 text-gray-700 font-['Space_Mono',monospace] text-xs md:text-sm font-black uppercase tracking-wider border-2 border-black shadow-[3px_3px_0px_0px_#000000] rotate-[-2deg] select-none cursor-not-allowed"
+                          title="Acara ini telah selesai atau ditutup"
+                        >
+                          EVENT SELESAI
+                        </div>
+                      ) : displayStatus === "ACTIVE_WITH_TICKET" && event.taptapUrl ? (
                         <a
                           href={event.taptapUrl}
                           target="_blank"

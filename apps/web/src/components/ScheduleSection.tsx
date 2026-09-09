@@ -2,7 +2,11 @@ import Link from "next/link";
 import { Calendar } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
 import { DBEvent, defaultWebEvents } from "../lib/site-config.server";
-import { isValidTapTapLink, formatEventDate } from "../lib/events-utils";
+import {
+  isValidTapTapLink,
+  formatEventDate,
+  getEventDisplayStatus,
+} from "../lib/events-utils";
 
 interface ScheduleSectionProps {
   events?: DBEvent[];
@@ -48,35 +52,37 @@ export function ScheduleSection({ events }: ScheduleSectionProps) {
 
             <Link
               href="/events"
-              className="hidden md:inline-block font-['Space_Mono',monospace] text-sm font-bold text-[#FF4500] hover:text-black underline decoration-2 uppercase"
+              className="font-['Space_Mono',monospace] text-xs md:text-sm font-bold text-[#FF4500] hover:underline uppercase tracking-wider hidden sm:block"
             >
-              ALL SHOWS & EVENTS →
+              VIEW FULL SCHEDULE &rarr;
             </Link>
           </div>
         </AnimateReveal>
 
-        {/* Schedule List with Staggered pop-in */}
-        <div className="flex flex-col gap-6">
-          {displayList.map((item, index) => {
-            const hasValidLink = isValidTapTapLink(item.taptapUrl);
-            const dateFormatted = `${formatEventDate(item.date)} • ${item.time || "20:00 WIT"}`;
-            const details = `${item.address || item.venue} ${item.host ? "• HOST: " + item.host : ""}`;
+        {/* Schedule List Cards */}
+        <div className="flex flex-col gap-4">
+          {displayList.map((item, idx) => {
+            const formattedDate = formatEventDate(item.date);
+            const details = `${item.time} • ${item.price || "FREE ENTRY"}`;
+            const displayStatus = getEventDisplayStatus(
+              item.status,
+              item.date,
+              item.time,
+              item.taptapUrl
+            );
 
             return (
               <AnimateReveal
-                key={item.id || index}
+                key={item.id}
                 variant="fade-up"
-                delayMs={index * 90}
-                durationMs={700}
+                delayMs={idx * 80}
+                durationMs={600}
               >
-                <div className="w-full bg-white border-2 border-black p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-[6px_6px_0px_0px_#000000] hover:translate-x-1 hover:translate-y-1 hover:shadow-[3px_3px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all">
-                  {/* Date & Time */}
-                  <div className="md:w-64">
-                    <span className="font-['Space_Mono',monospace] text-xs font-bold text-[#FF4500] uppercase block mb-0.5">
-                      {item.type || "OPEN MIC"}
-                    </span>
-                    <span className="font-['Space_Mono',monospace] text-sm md:text-base font-bold text-[#281812] tracking-wider uppercase block">
-                      {dateFormatted}
+                <div className="w-full bg-white border-2 border-black shadow-[6px_6px_0px_0px_#000000] p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-[3px_3px_0px_0px_#000000] hover:translate-x-1 hover:translate-y-1 transition-all">
+                  {/* Date & Badge */}
+                  <div className="flex items-center gap-3">
+                    <span className="font-['Space_Mono',monospace] font-bold text-sm md:text-base text-[#FF4500] bg-[#FFE9E3] px-3 py-1 border border-black/20">
+                      {formattedDate}
                     </span>
                   </div>
 
@@ -90,9 +96,16 @@ export function ScheduleSection({ events }: ScheduleSectionProps) {
                     </p>
                   </div>
 
-                  {/* Action Button: TapTap Link OR Comic Coming Soon */}
+                  {/* Action Button: TapTap Link OR Comic Coming Soon OR Closed/Selesai */}
                   <div>
-                    {hasValidLink && item.taptapUrl ? (
+                    {displayStatus === "CLOSED" || displayStatus === "EXPIRED" ? (
+                      <div
+                        className="inline-flex items-center justify-center px-4 py-2 bg-gray-300 text-gray-700 font-['Space_Mono',monospace] text-xs md:text-sm font-black uppercase tracking-wider border-2 border-black shadow-[3px_3px_0px_0px_#000000] rotate-[-2deg] select-none cursor-not-allowed"
+                        title="Acara ini telah selesai atau ditutup"
+                      >
+                        EVENT SELESAI
+                      </div>
+                    ) : displayStatus === "ACTIVE_WITH_TICKET" && item.taptapUrl ? (
                       <a
                         href={item.taptapUrl}
                         target="_blank"

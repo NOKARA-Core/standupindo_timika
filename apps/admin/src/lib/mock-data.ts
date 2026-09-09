@@ -11,7 +11,7 @@ export interface EventItem {
   host: string;
   price: string;
   taptapUrl: string;
-  status: "PUBLISHED" | "DRAFT" | "TAPTAP LIVE";
+  status: "PUBLISHED" | "DRAFT" | "TAPTAP LIVE" | "CLOSED";
   flyerUrl?: string;
   capacity?: number;
   registeredCount?: number;

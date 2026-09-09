@@ -16,6 +16,77 @@ import {
 } from "lucide-react";
 import { EventItem } from "../../src/lib/mock-data";
 
+// Helper function: Check if event date has passed according to WIT (Papua / UTC+9)
+function isEventPassedWIT(dateStr: string, timeStr?: string): boolean {
+  if (!dateStr) return false;
+  try {
+    const nowWIT = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Jayapura",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+
+    if (dateStr < nowWIT) return true;
+    if (dateStr > nowWIT) return false;
+
+    if (timeStr) {
+      const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})/);
+      if (timeMatch && timeMatch[1] && timeMatch[2]) {
+        const eventHours = parseInt(timeMatch[1], 10);
+        const eventMinutes = parseInt(timeMatch[2], 10);
+        const nowWITTime = new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Asia/Jayapura",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }).format(new Date());
+        const parts = nowWITTime.split(":").map(Number);
+        const nowH = parts[0] ?? 0;
+        const nowM = parts[1] ?? 0;
+        if (nowH > eventHours || (nowH === eventHours && nowM >= eventMinutes)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function getEventTimingBadge(dateStr: string, timeStr?: string, taptapUrl?: string | null) {
+  const isPassed = isEventPassedWIT(dateStr, timeStr);
+  if (isPassed) {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-700 border border-gray-300 whitespace-nowrap">
+        Passed / Expired
+      </span>
+    );
+  }
+
+  const hasTicket =
+    taptapUrl &&
+    taptapUrl.trim() &&
+    taptapUrl.trim() !== "-" &&
+    taptapUrl.trim() !== "#" &&
+    (taptapUrl.startsWith("http://") || taptapUrl.startsWith("https://"));
+
+  if (!hasTicket) {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-300 whitespace-nowrap">
+        No Ticket Link
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 whitespace-nowrap">
+      Upcoming
+    </span>
+  );
+}
+
 export default function EventsAdminPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -36,7 +107,7 @@ export default function EventsAdminPage() {
   const [host, setHost] = useState("");
   const [price, setPrice] = useState("");
   const [taptapUrl, setTaptapUrl] = useState("");
-  const [status, setStatus] = useState<"PUBLISHED" | "DRAFT" | "TAPTAP LIVE">("PUBLISHED");
+  const [status, setStatus] = useState<"PUBLISHED" | "DRAFT" | "TAPTAP LIVE" | "CLOSED">("PUBLISHED");
 
   // Load events from Neon DB API
   const fetchEvents = async () => {
@@ -137,24 +208,20 @@ export default function EventsAdminPage() {
     }
   };
 
-  const handleToggleStatus = async (evt: EventItem) => {
-    const nextStatusMap: Record<string, "PUBLISHED" | "TAPTAP LIVE" | "DRAFT"> = {
-      PUBLISHED: "TAPTAP LIVE",
-      "TAPTAP LIVE": "DRAFT",
-      DRAFT: "PUBLISHED",
-    };
-    const nextStatus = nextStatusMap[evt.status] || "PUBLISHED";
-
+  const handleStatusChange = async (
+    id: string,
+    nextStatus: "PUBLISHED" | "DRAFT" | "TAPTAP LIVE" | "CLOSED"
+  ) => {
     // Optimistic update
     setEvents((prev) =>
-      prev.map((item) => (item.id === evt.id ? { ...item, status: nextStatus } : item))
+      prev.map((item) => (item.id === id ? { ...item, status: nextStatus } : item))
     );
 
     try {
       const res = await fetch("/api/events", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: evt.id, status: nextStatus }),
+        body: JSON.stringify({ id, status: nextStatus }),
       });
       if (!res.ok) {
         await fetchEvents();
@@ -222,7 +289,7 @@ export default function EventsAdminPage() {
       <div className="bg-white border border-gray-200 p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         {/* Status Filter Buttons */}
         <div className="flex flex-wrap gap-1.5">
-          {["ALL", "PUBLISHED", "TAPTAP LIVE", "DRAFT"].map((st) => (
+          {["ALL", "PUBLISHED", "TAPTAP LIVE", "CLOSED", "DRAFT"].map((st) => (
             <button
               key={st}
               type="button"
@@ -306,8 +373,11 @@ export default function EventsAdminPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-xs font-semibold text-gray-900">
-                        {evt.date}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-gray-900">
+                          {evt.date}
+                        </span>
+                        {getEventTimingBadge(evt.date, evt.time, evt.taptapUrl)}
                       </div>
                       <div className="text-xs text-gray-500">{evt.time}</div>
                     </td>
@@ -335,20 +405,29 @@ export default function EventsAdminPage() {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStatus(evt)}
-                        title="Klik untuk ubah status secara instan"
-                        className={`inline-block px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80 transition-opacity ${
-                          evt.status === "TAPTAP LIVE"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      <select
+                        value={evt.status}
+                        onChange={(e) =>
+                          handleStatusChange(
+                            evt.id,
+                            e.target.value as "PUBLISHED" | "DRAFT" | "TAPTAP LIVE" | "CLOSED"
+                          )
+                        }
+                        className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wider border rounded cursor-pointer focus:outline-none transition-colors ${
+                          evt.status === "CLOSED" || evt.status?.toLowerCase() === "closed"
+                            ? "bg-gray-100 text-gray-700 border-gray-300"
+                            : evt.status === "TAPTAP LIVE"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-300"
                             : evt.status === "PUBLISHED"
-                            ? "bg-blue-50 text-blue-700 border border-blue-200"
-                            : "bg-gray-100 text-gray-600 border border-gray-200"
+                            ? "bg-blue-50 text-blue-700 border-blue-300"
+                            : "bg-amber-50 text-amber-700 border-amber-300"
                         }`}
                       >
-                        {evt.status} ↻
-                      </button>
+                        <option value="PUBLISHED">Published</option>
+                        <option value="TAPTAP LIVE">TapTap Live</option>
+                        <option value="CLOSED">Closed / Selesai</option>
+                        <option value="DRAFT">Draft</option>
+                      </select>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
@@ -434,14 +513,15 @@ export default function EventsAdminPage() {
                     value={status}
                     onChange={(e) =>
                       setStatus(
-                        e.target.value as "PUBLISHED" | "DRAFT" | "TAPTAP LIVE"
+                        e.target.value as "PUBLISHED" | "DRAFT" | "TAPTAP LIVE" | "CLOSED"
                       )
                     }
                     className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
                   >
-                    <option value="PUBLISHED">PUBLISHED</option>
-                    <option value="TAPTAP LIVE">TAPTAP LIVE</option>
-                    <option value="DRAFT">DRAFT</option>
+                    <option value="PUBLISHED">PUBLISHED (Aktif)</option>
+                    <option value="TAPTAP LIVE">TAPTAP LIVE (Tiket Live)</option>
+                    <option value="CLOSED">CLOSED / SELESAI</option>
+                    <option value="DRAFT">DRAFT (Disembunyikan)</option>
                   </select>
                 </div>
               </div>
