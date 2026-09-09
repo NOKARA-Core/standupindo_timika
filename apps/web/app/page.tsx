@@ -8,7 +8,6 @@ import { PartnersSection } from "../src/components/PartnersSection";
 import { LocationSection } from "../src/components/LocationSection";
 import { Footer } from "../src/components/Footer";
 import { getMediaSettingsFromDB, getPartnersFromDB } from "../src/lib/site-config.server";
-import { PreviewPill } from "../src/components/PreviewPill";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -64,9 +63,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <LocationSection />
       </main>
       <Footer />
-
-      {/* Floating pill kecil di pojok kiri bawah */}
-      <PreviewPill isDynamic={isDynamic} viewMode={viewMode} />
     </div>
   );
 }
