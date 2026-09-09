@@ -106,9 +106,6 @@ export function GallerySection({
                     <span className="px-3 py-1 bg-[#FF4500] text-white font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-wider border border-black">
                       {displayTag}
                     </span>
-                    <span className="font-['Space_Mono',monospace] text-xs text-white/70 font-bold">
-                      IMG_00{index + 1}
-                    </span>
                   </div>
                 </div>
 
