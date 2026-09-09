@@ -49,7 +49,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           comediansConfig={config?.comedians}
           isDynamic={isDynamic}
         />
-        <GallerySection />
+        <GallerySection
+          documentationConfig={config?.flyers}
+          isDynamic={isDynamic}
+        />
         <StoreSection
           merchConfig={config?.merch}
           isDynamic={isDynamic}
