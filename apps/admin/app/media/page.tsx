@@ -59,6 +59,7 @@ export default function MediaAssetsAdminPage() {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [selectedType, setSelectedType] = useState<string>("ALL");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
 
   // Client helper for uploading to /api/upload
   const uploadFileToServer = async (
@@ -309,14 +310,55 @@ export default function MediaAssetsAdminPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleDeleteAsset = async (id: string) => {
-    if (confirm("Hapus aset media ini dari storage?")) {
-      try {
-        await fetch(`/api/media-assets?id=${id}`, { method: "DELETE" });
-        setAssets((prev) => prev.filter((item) => item.id !== id));
-      } catch {
-        alert("Gagal menghapus aset.");
+  const handleDeleteAsset = async (id: string, url?: string) => {
+    const confirmed = confirm(
+      "Apakah Anda yakin ingin menghapus gambar ini secara permanen?\n\nGambar akan dihapus dari Cloudinary Storage dan database."
+    );
+    if (!confirmed) return;
+
+    setIsDeletingId(id);
+    try {
+      const params = new URLSearchParams();
+      if (id) params.set("id", id);
+      if (url) params.set("url", url);
+
+      const res = await fetch(`/api/media-assets?${params.toString()}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Gagal menghapus aset.");
       }
+
+      setAssets((prev) =>
+        prev.filter((item) => item.id !== id && (!url || item.url !== url))
+      );
+
+      // If any slot is currently staging this deleted image, cancel staging
+      setStagedSlots((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        Object.entries(next).forEach(([k, v]) => {
+          if (v?.previewUrl === url) {
+            delete next[k];
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+
+      // If active hero is using this deleted image, clear it
+      if (url && siteConfig.hero?.url === url) {
+        await handleResetSlot("hero", () => ({
+          ...siteConfig,
+          hero: { ...defaultSiteConfig.hero, url: null, isCustom: false },
+        }));
+      }
+    } catch (err: any) {
+      alert(err.message || "Gagal menghapus aset dari storage.");
+    } finally {
+      setIsDeletingId(null);
     }
   };
 
@@ -607,19 +649,22 @@ export default function MediaAssetsAdminPage() {
                     </>
                   ) : (
                     <>
-                      {siteConfig.hero.isCustom && (
+                      {(siteConfig.hero.url || siteConfig.hero.isCustom) && (
                         <button
                           type="button"
-                          onClick={() =>
-                            handleResetSlot(slotId, () => ({
-                              ...siteConfig,
-                              hero: { ...defaultSiteConfig.hero },
-                            }))
-                          }
-                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-400 text-xs font-bold cursor-pointer flex items-center gap-1"
+                          onClick={() => {
+                            if (confirm("Hapus gambar panggung dari Slot 1: Hero Visual?")) {
+                              handleResetSlot(slotId, () => ({
+                                ...siteConfig,
+                                hero: { ...defaultSiteConfig.hero, url: null, isCustom: false },
+                              }));
+                            }
+                          }}
+                          className="px-3.5 py-1.5 bg-red-100 hover:bg-red-600 hover:text-white text-red-800 border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer flex items-center gap-1.5 transition-colors active:translate-y-0.5"
+                          title="Hapus gambar dari Slot 1"
                         >
-                          <RotateCcw className="w-3 h-3" />
-                          <span>Reset</span>
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Hapus Gambar</span>
                         </button>
                       )}
 
@@ -663,6 +708,28 @@ export default function MediaAssetsAdminPage() {
                           className="object-cover"
                         />
                         <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+                        
+                        {/* Floating quick delete button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (staged) {
+                              handleCancelPreview(slotId);
+                            } else {
+                              if (confirm("Hapus gambar panggung hero ini?")) {
+                                handleResetSlot(slotId, () => ({
+                                  ...siteConfig,
+                                  hero: { ...defaultSiteConfig.hero, url: null, isCustom: false },
+                                }));
+                              }
+                            }
+                          }}
+                          className="absolute top-2 right-2 z-20 p-1.5 bg-red-600 hover:bg-red-700 text-white border border-black shadow-[2px_2px_0px_0px_#000] cursor-pointer transition-colors"
+                          title={staged ? "Batalkan preview staging" : "Hapus gambar hero"}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
                         <div className="relative z-10">
                           <span
                             className={`px-2 py-0.5 text-[10px] font-mono font-bold border border-black ${
@@ -840,23 +907,26 @@ export default function MediaAssetsAdminPage() {
                       </div>
                     ) : (
                       <div className="flex items-center justify-between gap-1.5">
-                        {c.isCustom && (
+                        {(c.avatarUrl || c.isCustom) && (
                           <button
                             type="button"
-                            onClick={() =>
-                              handleResetSlot(slotId, () => ({
-                                ...siteConfig,
-                                comedians: siteConfig.comedians.map((item) =>
-                                  item.id === c.id
-                                    ? { ...item, avatarUrl: null, isCustom: false }
-                                    : item
-                                ),
-                              }))
-                            }
-                            className="text-[10px] font-bold text-gray-600 hover:text-black flex items-center gap-1 cursor-pointer"
+                            onClick={() => {
+                              if (confirm(`Hapus foto profil untuk ${c.name}?`)) {
+                                handleResetSlot(slotId, () => ({
+                                  ...siteConfig,
+                                  comedians: siteConfig.comedians.map((item) =>
+                                    item.id === c.id
+                                      ? { ...item, avatarUrl: null, isCustom: false }
+                                      : item
+                                  ),
+                                }));
+                              }
+                            }}
+                            className="text-[10px] font-bold text-red-700 hover:text-white hover:bg-red-600 flex items-center gap-1 cursor-pointer bg-red-100 border border-black px-2 py-0.5 shadow-[1px_1px_0px_0px_#000] transition-colors"
+                            title="Hapus foto profil"
                           >
-                            <RotateCcw className="w-3 h-3" />
-                            <span>Reset</span>
+                            <Trash2 className="w-3 h-3" />
+                            <span>Hapus</span>
                           </button>
                         )}
                         <div className="flex items-center gap-1 ml-auto">
@@ -988,23 +1058,26 @@ export default function MediaAssetsAdminPage() {
                       </div>
                     ) : (
                       <div className="flex items-center justify-between gap-1.5">
-                        {f.isCustom && (
+                        {(f.flyerUrl || f.isCustom) && (
                           <button
                             type="button"
-                            onClick={() =>
-                              handleResetSlot(slotId, () => ({
-                                ...siteConfig,
-                                flyers: siteConfig.flyers.map((item) =>
-                                  item.id === f.id
-                                    ? { ...item, flyerUrl: null, isCustom: false }
-                                    : item
-                                ),
-                              }))
-                            }
-                            className="text-[10px] font-bold text-gray-600 hover:text-black flex items-center gap-1 cursor-pointer"
+                            onClick={() => {
+                              if (confirm(`Hapus poster flyer untuk ${f.title}?`)) {
+                                handleResetSlot(slotId, () => ({
+                                  ...siteConfig,
+                                  flyers: siteConfig.flyers.map((item) =>
+                                    item.id === f.id
+                                      ? { ...item, flyerUrl: null, isCustom: false }
+                                      : item
+                                  ),
+                                }));
+                              }
+                            }}
+                            className="text-[10px] font-bold text-red-700 hover:text-white hover:bg-red-600 flex items-center gap-1 cursor-pointer bg-red-100 border border-black px-2 py-0.5 shadow-[1px_1px_0px_0px_#000] transition-colors"
+                            title="Hapus poster flyer"
                           >
-                            <RotateCcw className="w-3 h-3" />
-                            <span>Reset</span>
+                            <Trash2 className="w-3 h-3" />
+                            <span>Hapus</span>
                           </button>
                         )}
                         <div className="flex items-center gap-1 ml-auto">
@@ -1138,23 +1211,26 @@ export default function MediaAssetsAdminPage() {
                       </div>
                     ) : (
                       <div className="flex items-center justify-between gap-1.5">
-                        {m.isCustom && (
+                        {(m.imageUrl || m.isCustom) && (
                           <button
                             type="button"
-                            onClick={() =>
-                              handleResetSlot(slotId, () => ({
-                                ...siteConfig,
-                                merch: siteConfig.merch.map((item) =>
-                                  item.id === m.id
-                                    ? { ...item, imageUrl: null, isCustom: false }
-                                    : item
-                                ),
-                              }))
-                            }
-                            className="text-[10px] font-bold text-gray-600 hover:text-black flex items-center gap-1 cursor-pointer"
+                            onClick={() => {
+                              if (confirm(`Hapus foto produk untuk ${m.name}?`)) {
+                                handleResetSlot(slotId, () => ({
+                                  ...siteConfig,
+                                  merch: siteConfig.merch.map((item) =>
+                                    item.id === m.id
+                                      ? { ...item, imageUrl: null, isCustom: false }
+                                      : item
+                                  ),
+                                }));
+                              }
+                            }}
+                            className="text-[10px] font-bold text-red-700 hover:text-white hover:bg-red-600 flex items-center gap-1 cursor-pointer bg-red-100 border border-black px-2 py-0.5 shadow-[1px_1px_0px_0px_#000] transition-colors"
+                            title="Hapus foto produk"
                           >
-                            <RotateCcw className="w-3 h-3" />
-                            <span>Reset</span>
+                            <Trash2 className="w-3 h-3" />
+                            <span>Hapus</span>
                           </button>
                         )}
                         <div className="flex items-center gap-1 ml-auto">
@@ -1246,9 +1322,23 @@ export default function MediaAssetsAdminPage() {
                     <span className="px-2 py-0.5 bg-white text-gray-900 text-[10px] font-bold uppercase tracking-wider">
                       {asset.type}
                     </span>
-                    <span className="text-[10px] text-white/90 font-mono font-bold bg-black/60 px-1">
-                      {asset.size}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-white/90 font-mono font-bold bg-black/60 px-1">
+                        {asset.size}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={isDeletingId === asset.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteAsset(asset.id, asset.url);
+                        }}
+                        className="p-1 bg-red-600/90 hover:bg-red-700 text-white border border-black cursor-pointer transition-colors shadow-[1px_1px_0px_0px_#000]"
+                        title="Hapus gambar ini"
+                      >
+                        <Trash2 className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="my-auto z-10 relative">
@@ -1284,11 +1374,17 @@ export default function MediaAssetsAdminPage() {
 
                   <button
                     type="button"
-                    onClick={() => handleDeleteAsset(asset.id)}
-                    className="p-1 text-gray-400 hover:text-red-600 cursor-pointer"
-                    title="Hapus Aset"
+                    disabled={isDeletingId === asset.id}
+                    onClick={() => handleDeleteAsset(asset.id, asset.url)}
+                    className="px-2.5 py-1 bg-red-100 hover:bg-red-600 hover:text-white text-red-700 font-bold border border-black text-[11px] uppercase flex items-center gap-1 cursor-pointer transition-colors shadow-[1px_1px_0px_0px_#000]"
+                    title="Hapus gambar secara permanen dari Cloudinary"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    {isDeletingId === asset.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
+                    <span>Hapus</span>
                   </button>
                 </div>
               </div>
@@ -1449,6 +1545,20 @@ export default function MediaAssetsAdminPage() {
                               {asset.type}
                             </span>
                           </div>
+                          <div className="absolute top-1 right-1 z-10">
+                            <button
+                              type="button"
+                              disabled={isDeletingId === asset.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteAsset(asset.id, asset.url);
+                              }}
+                              className="p-1 bg-red-600/90 hover:bg-red-700 text-white border border-black cursor-pointer transition-colors shadow-[1px_1px_0px_0px_#000]"
+                              title="Hapus gambar permanen dari Cloudinary"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
                         </div>
 
                         {/* Title & Button */}
@@ -1459,8 +1569,26 @@ export default function MediaAssetsAdminPage() {
                           <span className="text-[9px] text-gray-500 font-mono">
                             {asset.size}
                           </span>
-                          <div className="mt-2 text-center py-1 bg-gray-100 group-hover:bg-[#FF4500] group-hover:text-white text-[10px] font-bold uppercase border border-black transition-colors">
-                            Gunakan Gambar
+                          <div className="mt-2 flex items-center gap-1">
+                            <div className="flex-1 text-center py-1 bg-gray-100 group-hover:bg-[#FF4500] group-hover:text-white text-[10px] font-bold uppercase border border-black transition-colors">
+                              Gunakan Gambar
+                            </div>
+                            <button
+                              type="button"
+                              disabled={isDeletingId === asset.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteAsset(asset.id, asset.url);
+                              }}
+                              className="p-1 bg-red-100 hover:bg-red-600 hover:text-white text-red-700 border border-black cursor-pointer transition-colors shadow-[1px_1px_0px_0px_#000]"
+                              title="Hapus gambar secara permanen"
+                            >
+                              {isDeletingId === asset.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3 h-3" />
+                              )}
+                            </button>
                           </div>
                         </div>
                       </div>

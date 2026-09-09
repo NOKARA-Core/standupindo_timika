@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSql } from "../../../src/lib/db";
 import { getSiteConfig } from "../../../src/lib/site-config.server";
+import { deleteAsset } from "../../../src/lib/storage";
 
 async function syncMediaAssetsFromConfig() {
   const sql = getSql();
@@ -138,15 +139,39 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
+    let targetUrl = searchParams.get("url");
 
-    if (!id) {
-      return NextResponse.json({ error: "ID is required" }, { status: 400 });
+    if (!id && !targetUrl) {
+      return NextResponse.json({ error: "ID or URL is required" }, { status: 400 });
     }
 
     const sql = getSql();
-    await sql`DELETE FROM media_assets WHERE id = ${id}`;
 
-    return NextResponse.json({ success: true, message: "Asset deleted" });
+    // 1. Find asset in media_assets if url is not directly provided
+    if (!targetUrl && id) {
+      const rows = await sql`SELECT url FROM media_assets WHERE id = ${id}`;
+      if (rows && rows.length > 0 && rows[0]?.url) {
+        targetUrl = rows[0].url;
+      }
+    }
+
+    // 2. Delete from Cloudinary if it's a Cloudinary URL
+    if (targetUrl && targetUrl.includes("cloudinary.com")) {
+      await deleteAsset(targetUrl);
+    }
+
+    // 3. Delete from media_assets table
+    if (id) {
+      await sql`DELETE FROM media_assets WHERE id = ${id}`;
+    }
+    if (targetUrl) {
+      await sql`DELETE FROM media_assets WHERE url = ${targetUrl}`;
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Asset deleted from Cloudinary storage and database",
+    });
   } catch (error: any) {
     console.error("DELETE /api/media-assets error:", error);
     return NextResponse.json(

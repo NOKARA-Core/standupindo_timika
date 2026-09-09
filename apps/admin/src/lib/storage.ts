@@ -101,3 +101,53 @@ export async function uploadAsset(
     format: filename.split(".").pop() || "png",
   };
 }
+
+/**
+ * Extracts Cloudinary public ID from a full Cloudinary URL
+ */
+export function extractCloudinaryPublicId(urlOrId: string): string | null {
+  if (!urlOrId) return null;
+  if (!urlOrId.includes("http") && !urlOrId.includes("://")) {
+    return urlOrId;
+  }
+  try {
+    const regex = /\/image\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-zA-Z0-9]+)?$/;
+    const match = urlOrId.match(regex);
+    if (match && match[1]) {
+      return match[1];
+    }
+  } catch (err) {
+    console.error("Error extracting publicId:", err);
+  }
+  return null;
+}
+
+/**
+ * Deletes an asset from Cloudinary storage
+ */
+export async function deleteAsset(urlOrId: string): Promise<boolean> {
+  const provider = (process.env.STORAGE_PROVIDER || "cloudinary").toLowerCase();
+  if (provider === "cloudinary" && cloudName && apiKey && apiSecret) {
+    cloudinary.config({
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
+      secure: true,
+    });
+
+    const publicId = extractCloudinaryPublicId(urlOrId);
+    if (!publicId) return false;
+
+    try {
+      const res = await cloudinary.uploader.destroy(publicId, {
+        invalidate: true,
+      });
+      return res.result === "ok" || res.result === "not found";
+    } catch (err) {
+      console.warn("Cloudinary destroy error:", err);
+      return false;
+    }
+  }
+  return true;
+}
+
