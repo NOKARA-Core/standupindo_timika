@@ -1,6 +1,3 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import { Navbar } from "../src/components/Navbar";
 import { HeroSection } from "../src/components/HeroSection";
 import { ScheduleSection } from "../src/components/ScheduleSection";
@@ -11,45 +8,45 @@ import { PartnersSection } from "../src/components/PartnersSection";
 import { LocationSection } from "../src/components/LocationSection";
 import { Footer } from "../src/components/Footer";
 import {
-  SiteAssetsConfig,
-  defaultSiteConfig,
-  getSiteConfig,
-} from "../src/lib/site-config";
+  getMediaSettingsFromDB,
+  getPartnersFromDB,
+  getFeaturedLineupFromDB,
+  getMerchandiseFromDB,
+  getWhatsAppOrderNumberFromDB,
+  getEventsFromDB,
+} from "../src/lib/site-config.server";
 
-export default function Home() {
-  const [siteConfig, setSiteConfig] = useState<SiteAssetsConfig>(defaultSiteConfig);
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-  useEffect(() => {
-    let isMounted = true;
-    getSiteConfig().then((cfg) => {
-      if (isMounted && cfg) {
-        setSiteConfig(cfg);
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+export default async function HomePage() {
+  const [config, partners, featuredComedians, merchandise, whatsappNumber, events] =
+    await Promise.all([
+      getMediaSettingsFromDB(),
+      getPartnersFromDB(),
+      getFeaturedLineupFromDB(),
+      getMerchandiseFromDB(),
+      getWhatsAppOrderNumberFromDB(),
+      getEventsFromDB(),
+    ]);
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] flex flex-col selection:bg-[#FF4500] selection:text-white">
+    <div className="min-h-screen bg-[#FDFBF7] flex flex-col selection:bg-[#FF4500] selection:text-white relative">
       <Navbar />
       <main className="flex-1 flex flex-col">
-        <HeroSection
-          heroConfig={siteConfig.hero}
-          isDynamic={siteConfig.useDynamicAssets}
-        />
-        <ScheduleSection />
+        <HeroSection heroConfig={config?.hero} />
+        <ScheduleSection events={events} />
         <TalentGridSection
-          comediansConfig={siteConfig.comedians}
-          isDynamic={siteConfig.useDynamicAssets}
+          comedians={featuredComedians}
+          comediansConfig={config?.comedians}
         />
-        <GallerySection />
+        <GallerySection documentationConfig={config?.flyers} />
         <StoreSection
-          merchConfig={siteConfig.merch}
-          isDynamic={siteConfig.useDynamicAssets}
+          merchandise={merchandise}
+          merchConfig={config?.merch}
+          whatsappNumber={whatsappNumber}
         />
-        <PartnersSection />
+        <PartnersSection partners={partners} />
         <LocationSection />
       </main>
       <Footer />

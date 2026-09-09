@@ -3,6 +3,8 @@
 import { usePathname } from "next/navigation";
 import { Menu, ExternalLink, Bell } from "lucide-react";
 import { adminNavItems } from "../config/nav";
+import { LogoutButton } from "./LogoutButton";
+import { useAuth } from "../context/AuthContext";
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -16,6 +18,7 @@ export function Header({
   onToggleCollapse,
 }: HeaderProps) {
   const pathname = usePathname();
+  const { role, user, switchRole } = useAuth();
 
   // Determine dynamic title from nav config
   const getCurrentTitle = () => {
@@ -33,14 +36,14 @@ export function Header({
     <header className="h-16 bg-white border-b border-gray-200 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30">
       {/* Left: Toggle & Dynamic Title */}
       <div className="flex items-center gap-3">
-        {/* Mobile menu toggle */}
+        {/* Mobile menu toggle (Neo-Brutalism) */}
         <button
           type="button"
           onClick={onToggleSidebar}
-          className="md:hidden p-2 text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer"
+          className="lg:hidden p-2 bg-white text-black border-3 border-black shadow-[2px_2px_0px_0px_#000] hover:bg-[#FFD700] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
           aria-label="Open Navigation Menu"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-5 h-5 stroke-[2.5]" />
         </button>
 
         <div className="flex flex-col">
@@ -53,18 +56,8 @@ export function Header({
         </div>
       </div>
 
-      {/* Right: Quick Action, Notification & Avatar */}
+      {/* Right: Quick Action, Notification & Avatar & Logout */}
       <div className="flex items-center gap-3 md:gap-4">
-        {/* Quick External Link to Web App (Port 5000) */}
-        <a
-          href={webUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-3 py-1.5 transition-colors"
-        >
-          <span>View Live Site</span>
-          <ExternalLink className="w-3.5 h-3.5 text-gray-500" />
-        </a>
 
         {/* Notification Bell */}
         <button
@@ -76,20 +69,39 @@ export function Header({
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full ring-2 ring-white" />
         </button>
 
-        {/* User Profile Avatar */}
+        {/* User Profile Avatar & RBAC Badge */}
         <div className="flex items-center gap-2.5 pl-2 border-l border-gray-200">
-          <div className="w-8 h-8 bg-gray-900 text-white flex items-center justify-center text-xs font-bold shadow-xs">
-            MA
+          <div className="w-8 h-8 bg-gray-900 text-white flex items-center justify-center text-xs font-bold shadow-xs border border-black">
+            {role === "superadmin" ? "SA" : "CR"}
           </div>
           <div className="hidden lg:flex flex-col text-left">
             <span className="text-xs font-bold text-gray-900 leading-tight">
-              M. Amin
+              {user?.name || "Admin"}
             </span>
-            <span className="text-[10px] text-gray-500 leading-tight">
-              Ketua Timika
-            </span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span
+                className={`text-[9px] font-mono font-bold px-1.5 py-0.2 border uppercase ${
+                  role === "superadmin"
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                    : "bg-purple-100 text-purple-800 border-purple-300"
+                }`}
+              >
+                {role}
+              </span>
+              <button
+                type="button"
+                onClick={() => switchRole(role === "superadmin" ? "curator" : "superadmin")}
+                className="text-[9px] text-gray-500 hover:text-black hover:underline cursor-pointer"
+                title="Ganti role untuk simulasi RBAC"
+              >
+                [Switch Role]
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Dedicated Logout Action Button */}
+        <LogoutButton variant="header" />
       </div>
     </header>
   );

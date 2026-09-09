@@ -10,11 +10,38 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setErrorMsg(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrorMsg(data.error || "Autentikasi gagal. Silakan periksa kredensial Anda.");
+        setLoading(false);
+        return;
+      }
+
+      setSuccessMsg("Kredensial diverifikasi. Mengarahkan ke panel admin...");
+      setTimeout(() => {
+        window.location.href = data.redirectUrl || "http://localhost:5001";
+      }, 700);
+    } catch {
+      setErrorMsg("Gagal terhubung ke server autentikasi.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -149,21 +176,31 @@ export default function LoginPage() {
                 </label>
               </div>
 
+              {/* Error Message Alert */}
+              {errorMsg && (
+                <div className="p-3 bg-red-100 border-2 border-black shadow-[3px_3px_0px_0px_#000000] text-xs font-['Space_Mono',monospace] font-bold text-red-700 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              {/* Success Message Alert */}
+              {successMsg && (
+                <div className="p-3 bg-[#FFE9E3] border-2 border-black shadow-[3px_3px_0px_0px_#000000] text-xs font-['Space_Mono',monospace] font-bold text-[#A83300] flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#A83300] shrink-0" />
+                  <span>{successMsg}</span>
+                </div>
+              )}
+
               {/* Submit Button */}
               <button
                 type="submit"
-                className="w-full mt-2 py-3.5 bg-[#FF4500] hover:bg-[#e03d00] text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all cursor-pointer flex items-center justify-center gap-2"
+                disabled={loading}
+                className="w-full mt-2 py-3.5 bg-[#FF4500] hover:bg-[#e03d00] disabled:opacity-50 text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>AUTHENTICATE</span>
+                <span>{loading ? "VERIFYING..." : "AUTHENTICATE"}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
-
-              {submitted && (
-                <div className="p-3 bg-[#FFE9E3] border-2 border-black text-xs font-['Space_Mono',monospace] font-bold text-[#A83300] flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-[#A83300]" />
-                  <span>AUTHENTICATION VERIFIED. REDIRECTING...</span>
-                </div>
-              )}
             </form>
 
             {/* Footer of Form Box */}

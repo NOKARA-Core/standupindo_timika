@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { FloatingSocials } from "../src/components/FloatingSocials";
+import SmoothScrollProvider from "../src/components/SmoothScrollProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -73,8 +74,10 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased bg-[#FDFBF7] text-[#281812] selection:bg-[#FF4500] selection:text-white relative">
-        {children}
-        <FloatingSocials />
+        <SmoothScrollProvider>
+          {children}
+          <FloatingSocials />
+        </SmoothScrollProvider>
       </body>
     </html>
   );

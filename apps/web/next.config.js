@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  transpilePackages: ["@repo/ui"],
   images: {
     remotePatterns: [
       {
@@ -30,15 +31,15 @@ const nextConfig = {
     // Build CSP directives
     const cspDirectives = [
       "default-src 'self'",
-      // Scripts: Next.js hydration, Turbopack, inline scripts and eval for dev mode
+      // Scripts: Next.js hydration, Turbopack, inline scripts (eval only in dev mode)
       isDev
         ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
-        : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+        : "script-src 'self' 'unsafe-inline'",
       // Styles: Google Fonts stylesheets and inline CSS
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       // Fonts: Google Fonts static files and local fonts
       "font-src 'self' https://fonts.gstatic.com data:",
-      // Images: Self, blob, data URIs, and authorized CDNs/storage
+      // Images: Self, blob, data URIs, and authorized CDNs/storage (including Cloudinary)
       "img-src 'self' data: blob: https://res.cloudinary.com https://mock-storage.supabase.co https://*.supabase.co https://images.unsplash.com https://*.google.com https://maps.google.com https://*.gstatic.com",
       // Media (audio/video)
       "media-src 'self' data: blob: https://res.cloudinary.com https://*.supabase.co",
@@ -48,8 +49,8 @@ const nextConfig = {
         : "connect-src 'self' https://*.supabase.co https://res.cloudinary.com https://fonts.googleapis.com https://fonts.gstatic.com",
       // Frame src: Google Maps embed iframe
       "frame-src 'self' https://maps.google.com https://www.google.com https://*.google.com",
-      // Prevent embedding this site inside untrusted iframes
-      "frame-ancestors 'self'",
+      // Prevent embedding this site inside any iframes (anti-clickjacking)
+      "frame-ancestors 'none'",
       // Object & base restrictions
       "object-src 'none'",
       "base-uri 'self'",
@@ -72,7 +73,7 @@ const nextConfig = {
           },
           {
             key: "X-Frame-Options",
-            value: "SAMEORIGIN",
+            value: "DENY",
           },
           {
             key: "X-XSS-Protection",

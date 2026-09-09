@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { createPortal } from "react-dom";
+import Link from "next/link";
 import {
   Image as ImageIcon,
   Upload,
@@ -10,37 +12,99 @@ import {
   Copy,
   Trash2,
   Sliders,
-  Sparkles,
   Info,
   ExternalLink,
-  ShieldCheck,
-  AlertTriangle,
   Layers,
   Loader2,
+  X,
+  AlertTriangle,
+  Eye,
+  Images,
+  FolderOpen,
+  Handshake,
+  Plus,
+  Edit2,
+  Globe,
+  Star,
+  ArrowUp,
+  ArrowDown,
+  RefreshCw,
 } from "lucide-react";
 import {
   SiteAssetsConfig,
   defaultSiteConfig,
 } from "../../src/lib/site-config";
 import {
-  initialMediaAssets,
   MediaAsset,
-  uploadAsset,
+  ComedianItem,
 } from "../../src/lib/mock-data";
+
+interface StagedSlot {
+  file: File | null;
+  previewUrl: string;
+  source: "local" | "storage";
+  assetName?: string;
+}
+
+export interface PartnerItem {
+  id: string;
+  name: string;
+  logoUrl: string;
+  websiteUrl?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt?: string;
+}
 
 export default function MediaAssetsAdminPage() {
   const [siteConfig, setSiteConfig] = useState<SiteAssetsConfig>(defaultSiteConfig);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Storage explorer state
-  const [assets, setAssets] = useState<MediaAsset[]>(initialMediaAssets);
+  // Per-slot Staging State (Local Previews before Upload & Apply)
+  const [stagedSlots, setStagedSlots] = useState<Record<string, StagedSlot>>({});
+  const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
+  const [slotFeedback, setSlotFeedback] = useState<Record<string, string>>({});
+
+  // Media Picker Modal (to pick from already uploaded assets)
+  const [pickerSlotId, setPickerSlotId] = useState<string | null>(null);
+  const [pickerTypeFilter, setPickerTypeFilter] = useState<string>("ALL");
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+
+  // Storage explorer state (loaded from Cloudinary & Neon DB /api/media)
+  const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [selectedType, setSelectedType] = useState<string>("ALL");
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+  const [explorerPage, setExplorerPage] = useState<number>(1);
+  const [assetToDelete, setAssetToDelete] = useState<MediaAsset | null>(null);
+  const [isDeletingAsset, setIsDeletingAsset] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Client helper for uploading to /api/upload (Cloudinary / Local Provider)
+  // Partners & Sponsors Manager State
+  const [partners, setPartners] = useState<PartnerItem[]>([]);
+  const [isPartnerModalOpen, setIsPartnerModalOpen] = useState(false);
+  const [editingPartner, setEditingPartner] = useState<PartnerItem | null>(null);
+  const [partnerName, setPartnerName] = useState("");
+  const [partnerWebsite, setPartnerWebsite] = useState("");
+  const [partnerOrder, setPartnerOrder] = useState<number>(1);
+  const [partnerLogoStaged, setPartnerLogoStaged] = useState<{
+    file: File | null;
+    previewUrl: string;
+    source: "local" | "storage";
+  } | null>(null);
+  const [isSavingPartner, setIsSavingPartner] = useState(false);
+  const [isDeletingPartnerId, setIsDeletingPartnerId] = useState<string | null>(null);
+
+  // Comedians Lineup Selector State (3 Posisi Lineup - Single Source of Truth)
+  const [comediansList, setComediansList] = useState<ComedianItem[]>([]);
+  const [loadingComedians, setLoadingComedians] = useState(false);
+  const [isSavingLineup, setIsSavingLineup] = useState(false);
+  const [lineupSuccessMsg, setLineupSuccessMsg] = useState<string | null>(null);
+  const [selectedSlot1Id, setSelectedSlot1Id] = useState<string>("");
+  const [selectedSlot2Id, setSelectedSlot2Id] = useState<string>("");
+  const [selectedSlot3Id, setSelectedSlot3Id] = useState<string>("");
+
+  // Client helper for uploading to /api/upload
   const uploadFileToServer = async (
     file: File,
     folder: string = "stup-timika"
@@ -70,6 +134,97 @@ export default function MediaAssetsAdminPage() {
     };
   };
 
+  const fetchMediaAssets = async () => {
+    try {
+      const res = await fetch("/api/media?all=true");
+      if (res.ok) {
+        const data = await res.json();
+        setAssets(data.assets || []);
+      } else {
+        const fallbackRes = await fetch("/api/media-assets");
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          setAssets(fallbackData);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load media assets:", err);
+    }
+  };
+
+  const fetchPartners = async () => {
+    try {
+      const res = await fetch("/api/partners");
+      if (res.ok) {
+        const data = await res.json();
+        setPartners(data);
+      }
+    } catch (err) {
+      console.warn("Could not load partners:", err);
+    }
+  };
+
+  const fetchComedians = async () => {
+    try {
+      setLoadingComedians(true);
+      const res = await fetch("/api/comedians");
+      if (res.ok) {
+        const data: ComedianItem[] = await res.json();
+        setComediansList(data);
+
+        // Populate Slot 1, 2, 3 from featured comedians or fallback to first 3 comedians
+        const featured = data
+          .filter((c) => c.isFeaturedLineup)
+          .sort((a, b) => (a.lineupOrder || 0) - (b.lineupOrder || 0));
+
+        if (featured.length > 0) {
+          if (featured[0]) setSelectedSlot1Id(featured[0].id);
+          if (featured[1]) setSelectedSlot2Id(featured[1].id);
+          if (featured[2]) setSelectedSlot3Id(featured[2].id);
+        } else {
+          // Pre-select first 3 if none featured
+          if (data[0]) setSelectedSlot1Id(data[0].id);
+          if (data[1]) setSelectedSlot2Id(data[1].id);
+          if (data[2]) setSelectedSlot3Id(data[2].id);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load comedians in media page:", err);
+    } finally {
+      setLoadingComedians(false);
+    }
+  };
+
+  const handleSaveLineup = async () => {
+    setIsSavingLineup(true);
+    setLineupSuccessMsg(null);
+    try {
+      const featuredIds = [selectedSlot1Id, selectedSlot2Id, selectedSlot3Id].filter(Boolean);
+      const payload = { featuredIds };
+      const res = await fetch("/api/comedians/lineup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.comedians) {
+          setComediansList(data.comedians);
+        }
+        setLineupSuccessMsg("3 Komika THE LINEUP berhasil disimpan dan disinkronkan ke beranda!");
+        setTimeout(() => setLineupSuccessMsg(null), 5000);
+      } else {
+        const errData = await res.json();
+        alert(errData.error || "Gagal menyimpan lineup");
+      }
+    } catch (err) {
+      console.error("Save lineup error:", err);
+      alert("Terjadi kesalahan jaringan saat menyimpan lineup.");
+    } finally {
+      setIsSavingLineup(false);
+    }
+  };
+
   // Load configuration from API on mount
   useEffect(() => {
     async function loadConfig() {
@@ -86,273 +241,380 @@ export default function MediaAssetsAdminPage() {
       }
     }
     loadConfig();
+    fetchMediaAssets();
+    fetchPartners();
+    fetchComedians();
   }, []);
 
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(stagedSlots).forEach((s) => {
+        if (s.source === "local") {
+          URL.revokeObjectURL(s.previewUrl);
+        }
+      });
+      if (partnerLogoStaged && partnerLogoStaged.source === "local") {
+        URL.revokeObjectURL(partnerLogoStaged.previewUrl);
+      }
+    };
+  }, [stagedSlots, partnerLogoStaged]);
+
+  // Save specific config update to server
   const persistConfig = async (newConfig: SiteAssetsConfig) => {
     setSiteConfig(newConfig);
-    setSaving(true);
     try {
       const res = await fetch("/api/site-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newConfig),
       });
-      if (res.ok) {
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 2000);
+      if (!res.ok) {
+        throw new Error("Gagal menyimpan konfigurasi ke database");
       }
+      return true;
     } catch (err) {
       console.error("Failed to save config:", err);
-    } finally {
-      setSaving(false);
+      return false;
     }
   };
 
-  // Toggle Global Dynamic vs Static
-  const handleToggleDynamic = () => {
-    const updated: SiteAssetsConfig = {
-      ...siteConfig,
-      useDynamicAssets: !siteConfig.useDynamicAssets,
-    };
-    persistConfig(updated);
+  const showSlotFeedback = (slotId: string, msg: string) => {
+    setSlotFeedback((prev) => ({ ...prev, [slotId]: msg }));
+    setTimeout(() => {
+      setSlotFeedback((prev) => {
+        const copy = { ...prev };
+        delete copy[slotId];
+        return copy;
+      });
+    }, 3000);
   };
 
-  // Reset entire slot or individual items
-  const handleResetHero = () => {
-    const updated: SiteAssetsConfig = {
-      ...siteConfig,
-      hero: {
-        ...defaultSiteConfig.hero,
+  // Stage a local file
+  const handleStageFile = (slotId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (stagedSlots[slotId] && stagedSlots[slotId].source === "local") {
+      URL.revokeObjectURL(stagedSlots[slotId].previewUrl);
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setStagedSlots((prev) => ({
+      ...prev,
+      [slotId]: { file, previewUrl, source: "local", assetName: file.name },
+    }));
+    e.target.value = "";
+  };
+
+  // Cancel staging preview
+  const handleCancelPreview = (slotId: string) => {
+    if (stagedSlots[slotId] && stagedSlots[slotId].source === "local") {
+      URL.revokeObjectURL(stagedSlots[slotId].previewUrl);
+    }
+    setStagedSlots((prev) => {
+      const copy = { ...prev };
+      delete copy[slotId];
+      return copy;
+    });
+  };
+
+  // Open media picker to choose from already uploaded Cloudinary images
+  const handleOpenMediaPicker = (slotId: string, defaultType: string = "ALL") => {
+    setPickerSlotId(slotId);
+    setPickerTypeFilter(defaultType);
+    setIsPickerOpen(true);
+  };
+
+  // Select existing asset from picker (avoids re-uploading to Cloudinary)
+  const handleSelectAssetFromPicker = (asset: MediaAsset) => {
+    if (!pickerSlotId) return;
+
+    if (pickerSlotId === "partner-logo") {
+      setPartnerLogoStaged({
+        file: null,
+        previewUrl: asset.url,
+        source: "storage",
+      });
+      setIsPickerOpen(false);
+      setPickerSlotId(null);
+      return;
+    }
+
+    if (stagedSlots[pickerSlotId] && stagedSlots[pickerSlotId].source === "local") {
+      URL.revokeObjectURL(stagedSlots[pickerSlotId].previewUrl);
+    }
+
+    setStagedSlots((prev) => ({
+      ...prev,
+      [pickerSlotId]: {
+        file: null,
+        previewUrl: asset.url,
+        source: "storage",
+        assetName: asset.name,
       },
-    };
-    persistConfig(updated);
+    }));
+
+    setIsPickerOpen(false);
+    showSlotFeedback(pickerSlotId, `Dipilih dari storage: ${asset.name}`);
   };
 
-  const handleResetComedian = (id: string) => {
-    const updated: SiteAssetsConfig = {
-      ...siteConfig,
-      comedians: siteConfig.comedians.map((c) =>
-        c.id === id ? { ...c, avatarUrl: null, isCustom: false } : c
-      ),
-    };
-    persistConfig(updated);
+  // Partner Manager handlers
+  const openCreatePartnerModal = () => {
+    setEditingPartner(null);
+    setPartnerName("");
+    setPartnerWebsite("");
+    setPartnerOrder(partners.length + 1);
+    setPartnerLogoStaged(null);
+    setIsPartnerModalOpen(true);
   };
 
-  const handleResetFlyer = (id: string) => {
-    const updated: SiteAssetsConfig = {
-      ...siteConfig,
-      flyers: siteConfig.flyers.map((f) =>
-        f.id === id ? { ...f, flyerUrl: null, isCustom: false } : f
-      ),
-    };
-    persistConfig(updated);
+  const openEditPartnerModal = (partner: PartnerItem) => {
+    setEditingPartner(partner);
+    setPartnerName(partner.name);
+    setPartnerWebsite(partner.websiteUrl || "");
+    setPartnerOrder(partner.sortOrder || 1);
+    setPartnerLogoStaged({
+      file: null,
+      previewUrl: partner.logoUrl,
+      source: "storage",
+    });
+    setIsPartnerModalOpen(true);
   };
 
-  const handleResetMerch = (id: string) => {
-    const updated: SiteAssetsConfig = {
-      ...siteConfig,
-      merch: siteConfig.merch.map((m) =>
-        m.id === id ? { ...m, imageUrl: null, isCustom: false } : m
-      ),
-    };
-    persistConfig(updated);
-  };
-
-  // Upload handler for Hero Visual
-  const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleStagePartnerLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setUploadingSlot("hero");
-      try {
-        const uploaded = await uploadFileToServer(file, "stup-timika/hero");
-        const updated: SiteAssetsConfig = {
-          ...siteConfig,
-          hero: {
-            ...siteConfig.hero,
-            url: uploaded.url,
-            isCustom: true,
-          },
-        };
-        await persistConfig(updated);
+    if (!file) return;
+    if (partnerLogoStaged && partnerLogoStaged.source === "local") {
+      URL.revokeObjectURL(partnerLogoStaged.previewUrl);
+    }
+    const previewUrl = URL.createObjectURL(file);
+    setPartnerLogoStaged({
+      file,
+      previewUrl,
+      source: "local",
+    });
+    e.target.value = "";
+  };
 
-        // Also register to media explorer
-        setAssets((prev) => [
-          {
-            id: `med-${Date.now()}`,
-            name: file.name,
-            type: "BANNER",
-            size: uploaded.size,
-            url: uploaded.url,
-            uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
-          },
-          ...prev,
-        ]);
-      } catch (err: any) {
-        alert(err.message || "Gagal mengunggah foto hero");
-      } finally {
-        setUploadingSlot(null);
+  const handleSavePartner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!partnerName.trim()) {
+      alert("Nama Brand/Partner wajib diisi.");
+      return;
+    }
+    if (!partnerLogoStaged?.previewUrl) {
+      alert("Silakan upload logo transparan untuk partner ini.");
+      return;
+    }
+
+    setIsSavingPartner(true);
+    try {
+      let finalLogoUrl = partnerLogoStaged.previewUrl;
+
+      // If local file, upload to Cloudinary
+      if (partnerLogoStaged.source === "local" && partnerLogoStaged.file) {
+        const uploaded = await uploadFileToServer(
+          partnerLogoStaged.file,
+          "stup-timika/partners"
+        );
+        finalLogoUrl = uploaded.url;
       }
+
+      const payload = {
+        id: editingPartner ? editingPartner.id : `partner-${Date.now()}`,
+        name: partnerName.trim(),
+        logoUrl: finalLogoUrl,
+        websiteUrl: partnerWebsite.trim() || null,
+        sortOrder: Number(partnerOrder) || 1,
+        isActive: true,
+      };
+
+      const res = await fetch("/api/partners", {
+        method: editingPartner ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Gagal menyimpan partner");
+      }
+
+      await fetchPartners();
+      setIsPartnerModalOpen(false);
+      setEditingPartner(null);
+      setPartnerLogoStaged(null);
+    } catch (err: any) {
+      alert(err.message || "Gagal menyimpan partner");
+    } finally {
+      setIsSavingPartner(false);
     }
   };
 
-  // Upload handler for Comedian
-  const handleComedianUpload = async (
-    id: string,
-    e: React.ChangeEvent<HTMLInputElement>
+  const handleDeletePartner = async (id: string, name: string) => {
+    if (!confirm(`Hapus partner / sponsor "${name}" dari storage & database?`)) return;
+    setIsDeletingPartnerId(id);
+    try {
+      const res = await fetch(`/api/partners?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setPartners((prev) => prev.filter((p) => p.id !== id));
+      } else {
+        alert("Gagal menghapus partner");
+      }
+    } catch {
+      alert("Gagal menghapus partner");
+    } finally {
+      setIsDeletingPartnerId(null);
+    }
+  };
+
+  // Apply staged file (Uploads if local, or directly saves if chosen from storage)
+  const handleApplySlot = async (
+    slotId: string,
+    folder: string,
+    updateFn: (url: string) => SiteAssetsConfig
   ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setUploadingSlot(`comedian-${id}`);
-      try {
-        const uploaded = await uploadFileToServer(file, "stup-timika/comedians");
-        const updated: SiteAssetsConfig = {
-          ...siteConfig,
-          comedians: siteConfig.comedians.map((c) =>
-            c.id === id ? { ...c, avatarUrl: uploaded.url, isCustom: true } : c
-          ),
-        };
-        await persistConfig(updated);
+    const staged = stagedSlots[slotId];
+    if (!staged) return;
 
-        setAssets((prev) => [
-          {
-            id: `med-${Date.now()}`,
-            name: file.name,
-            type: "HEADSHOT",
-            size: uploaded.size,
-            url: uploaded.url,
-            uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
-          },
-          ...prev,
-        ]);
-      } catch (err: any) {
-        alert(err.message || "Gagal mengunggah foto komika");
-      } finally {
-        setUploadingSlot(null);
+    setUploadingSlot(slotId);
+    try {
+      let finalUrl = staged.previewUrl;
+
+      // Only upload if it's a new local file
+      if (staged.source === "local" && staged.file) {
+        const uploaded = await uploadFileToServer(staged.file, folder);
+        finalUrl = uploaded.url;
+        URL.revokeObjectURL(staged.previewUrl);
       }
+
+      const updatedConfig = updateFn(finalUrl);
+      const saved = await persistConfig(updatedConfig);
+
+      if (saved) {
+        setStagedSlots((prev) => {
+          const copy = { ...prev };
+          delete copy[slotId];
+          return copy;
+        });
+
+        showSlotFeedback(slotId, "Aset berhasil diterapkan ke database!");
+        await fetchMediaAssets();
+      }
+    } catch (err: any) {
+      alert(err.message || "Gagal mengunggah dan menerapkan aset.");
+    } finally {
+      setUploadingSlot(null);
     }
   };
 
-  // Upload handler for Flyer
-  const handleFlyerUpload = async (
-    id: string,
-    e: React.ChangeEvent<HTMLInputElement>
+  // Reset a slot to default
+  const handleResetSlot = async (
+    slotId: string,
+    resetFn: () => SiteAssetsConfig
   ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setUploadingSlot(`flyer-${id}`);
-      try {
-        const uploaded = await uploadFileToServer(file, "stup-timika/flyers");
-        const updated: SiteAssetsConfig = {
-          ...siteConfig,
-          flyers: siteConfig.flyers.map((f) =>
-            f.id === id ? { ...f, flyerUrl: uploaded.url, isCustom: true } : f
-          ),
-        };
-        await persistConfig(updated);
-
-        setAssets((prev) => [
-          {
-            id: `med-${Date.now()}`,
-            name: file.name,
-            type: "FLYER",
-            size: uploaded.size,
-            url: uploaded.url,
-            uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
-          },
-          ...prev,
-        ]);
-      } catch (err: any) {
-        alert(err.message || "Gagal mengunggah flyer event");
-      } finally {
-        setUploadingSlot(null);
-      }
+    if (stagedSlots[slotId]) {
+      handleCancelPreview(slotId);
+    }
+    const updated = resetFn();
+    const saved = await persistConfig(updated);
+    if (saved) {
+      showSlotFeedback(slotId, "Slot di-reset ke aset bawaan.");
     }
   };
 
-  // Upload handler for Merch
-  const handleMerchUpload = async (
-    id: string,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setUploadingSlot(`merch-${id}`);
-      try {
-        const uploaded = await uploadFileToServer(file, "stup-timika/merch");
-        const updated: SiteAssetsConfig = {
-          ...siteConfig,
-          merch: siteConfig.merch.map((m) =>
-            m.id === id ? { ...m, imageUrl: uploaded.url, isCustom: true } : m
-          ),
-        };
-        await persistConfig(updated);
-
-        setAssets((prev) => [
-          {
-            id: `med-${Date.now()}`,
-            name: file.name,
-            type: "DOCUMENTATION",
-            size: uploaded.size,
-            url: uploaded.url,
-            uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
-          },
-          ...prev,
-        ]);
-      } catch (err: any) {
-        alert(err.message || "Gagal mengunggah foto produk merch");
-      } finally {
-        setUploadingSlot(null);
-      }
-    }
-  };
-
-  // General explorer file upload handler
-  const handleGeneralUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setUploadingSlot("general");
-      try {
-        const uploaded = await uploadFileToServer(file, "stup-timika/general");
-        setAssets((prev) => [
-          {
-            id: `med-${Date.now()}`,
-            name: file.name,
-            type: file.name.includes("headshot")
-              ? "HEADSHOT"
-              : file.name.includes("flyer")
-              ? "FLYER"
-              : "BANNER",
-            size: uploaded.size,
-            url: uploaded.url,
-            uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
-          },
-          ...prev,
-        ]);
-      } catch (err: any) {
-        alert(err.message || "Gagal mengunggah file ke storage");
-      } finally {
-        setUploadingSlot(null);
-      }
-    }
-  };
-
-  // Generic explorer helpers
+  // Copy URL in Explorer
   const handleCopyUrl = (id: string, url: string) => {
     navigator.clipboard?.writeText(url);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Hapus aset media ini dari storage?")) {
-      setAssets((prev) => prev.filter((item) => item.id !== id));
+  const handleSelectType = (type: string) => {
+    setSelectedType(type);
+    setExplorerPage(1);
+  };
+
+  const handleRequestDeleteAsset = (asset: MediaAsset) => {
+    setAssetToDelete(asset);
+  };
+
+  const confirmDeleteAsset = async () => {
+    if (!assetToDelete) return;
+    const publicId =
+      assetToDelete.public_id ||
+      assetToDelete.url?.match(/\/image\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-zA-Z0-9]+)?$/)?.[1] ||
+      assetToDelete.id;
+
+    setIsDeletingAsset(true);
+    setIsDeletingId(assetToDelete.id);
+
+    try {
+      const res = await fetch("/api/media", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ public_id: publicId }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Gagal menghapus aset dari Cloudinary.");
+      }
+
+      setAssets((prev) =>
+        prev.filter(
+          (item) => item.id !== assetToDelete.id && item.url !== assetToDelete.url
+        )
+      );
+
+      // If any slot is currently staging this deleted image, cancel staging
+      setStagedSlots((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        Object.entries(next).forEach(([k, v]) => {
+          if (v?.previewUrl === assetToDelete.url) {
+            delete next[k];
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+
+      // If active hero is using this deleted image, clear it
+      if (assetToDelete.url && siteConfig.hero?.url === assetToDelete.url) {
+        await handleResetSlot("hero", () => ({
+          ...siteConfig,
+          hero: { ...defaultSiteConfig.hero, url: null, isCustom: false },
+        }));
+      }
+
+      setToastMessage(`Aset "${assetToDelete.name}" berhasil dihapus permanen!`);
+      setTimeout(() => setToastMessage(null), 3500);
+      setAssetToDelete(null);
+    } catch (err: any) {
+      console.error("Delete asset error:", err);
+      alert(err.message || "Gagal menghapus aset dari storage.");
+    } finally {
+      setIsDeletingAsset(false);
+      setIsDeletingId(null);
     }
   };
 
+  const ITEMS_PER_PAGE = 12;
+
   const filteredAssets = assets.filter(
     (a) => selectedType === "ALL" || a.type === selectedType
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredAssets.length / ITEMS_PER_PAGE));
+  const paginatedAssets = filteredAssets.slice(
+    (explorerPage - 1) * ITEMS_PER_PAGE,
+    explorerPage * ITEMS_PER_PAGE
+  );
+
+  const pickerFilteredAssets = assets.filter(
+    (a) => pickerTypeFilter === "ALL" || a.type === pickerTypeFilter
   );
 
   const webUrl = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:5000";
@@ -362,104 +624,30 @@ export default function MediaAssetsAdminPage() {
       {/* 1. Page Header & Live Status */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-gray-900">
-              Media & Dynamic Asset Control
-            </h1>
-            {saveSuccess && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full animate-fade-in">
-                <Check className="w-3 h-3" /> Tersimpan ke Database
-              </span>
-            )}
-            {saving && (
-              <span className="text-[11px] text-gray-500 font-medium animate-pulse">
-                Menyimpan...
-              </span>
-            )}
-          </div>
+          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <Layers className="w-6 h-6 text-[#FF4500]" />
+            <span>Dedicated Media Slots & Asset Staging</span>
+          </h1>
           <p className="text-xs text-gray-500 mt-1">
-            Manajemen aset dinamis landing page publik dengan sistem perlindungan fallback statis
+            Sistem upload per-slot dengan staging preview lokal dan opsi memilih dari media storage tanpa upload ulang.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <a
             href={webUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 text-xs font-semibold border border-gray-200 transition-colors shadow-xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-gray-50 text-gray-800 text-xs font-bold border-2 border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
+            title="Buka tampilan landing page publik saat ini"
           >
-            <span>Preview Landing Page</span>
-            <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
+            <span>Buka Web Publik</span>
+            <ExternalLink className="w-3.5 h-3.5 text-gray-600" />
           </a>
         </div>
       </div>
 
-      {/* 2. Global Sync Toggle Banner (Neo-Brutalist Toggle Card) */}
-      <div
-        className={`border-2 border-black p-6 transition-all shadow-[6px_6px_0px_0px_#000000] ${
-          siteConfig.useDynamicAssets
-            ? "bg-[#FFF8F6] border-black"
-            : "bg-white border-gray-300 shadow-[4px_4px_0px_0px_#D1D5DB]"
-        }`}
-      >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div
-              className={`w-12 h-12 flex items-center justify-center border-2 border-black shrink-0 ${
-                siteConfig.useDynamicAssets
-                  ? "bg-[#FF4500] text-white"
-                  : "bg-gray-100 text-gray-500"
-              }`}
-            >
-              <Sliders className="w-6 h-6" />
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-base font-bold text-gray-900 tracking-tight">
-                  Override Landing Page with Uploaded Assets
-                </h2>
-                <span
-                  className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 border ${
-                    siteConfig.useDynamicAssets
-                      ? "bg-emerald-600 text-white border-black"
-                      : "bg-gray-200 text-gray-700 border-gray-400"
-                  }`}
-                >
-                  {siteConfig.useDynamicAssets
-                    ? "DYNAMIC MODE ACTIVE"
-                    : "STATIC FALLBACK ONLY"}
-                </span>
-              </div>
-              <p className="text-xs text-gray-600 mt-1 max-w-2xl leading-relaxed">
-                {siteConfig.useDynamicAssets
-                  ? "Aset hasil upload di bawah ini sedang aktif menimpa tampilan grafis landing page (port 5000). Jika ada slot aset yang kosong, sistem otomatis memakai fallback bawaan."
-                  : "Mode Statis Aktif: Landing page saat ini mengunci tampilan pada aset desain bawaan asli. Upload yang Anda simpan di bawah tidak akan memengaruhi landing page sampai toggle ini diaktifkan."}
-              </p>
-            </div>
-          </div>
-
-          {/* Toggle Button */}
-          <div className="flex items-center gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={handleToggleDynamic}
-              className={`px-5 py-3 border-2 border-black font-mono text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                siteConfig.useDynamicAssets
-                  ? "bg-black text-white hover:bg-[#FF4500] shadow-[3px_3px_0px_0px_#FF4500] active:translate-x-[2px] active:translate-y-[2px]"
-                  : "bg-white text-black hover:bg-gray-100 shadow-[3px_3px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px]"
-              }`}
-            >
-              {siteConfig.useDynamicAssets
-                ? "NONAKTIFKAN (Gunakan Statis)"
-                : "AKTIFKAN ASET DINAMIS"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. ASSET SPECIFICATIONS & SCALE GUIDE (Card Information) */}
+      {/* 2. Asset Specifications Guide Card */}
       <div className="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#000000]">
         <div className="flex items-center gap-2 pb-3 border-b-2 border-black">
           <Info className="w-5 h-5 text-[#FF4500]" />
@@ -471,479 +659,867 @@ export default function MediaAssetsAdminPage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-          {/* Guide 1: Hero Stage Visual */}
-          <div className="bg-gray-50 border border-gray-200 p-3.5 flex flex-col justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <div className="bg-gray-50 border-2 border-black p-3.5 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-900">
-                  1. Hero Stage Visual
-                </span>
-                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-black text-white">
-                  1:1 / 4:5
-                </span>
+                <span className="text-xs font-bold text-gray-900">1. Hero Stage Visual</span>
+                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-black text-white">1:1 / 4:3</span>
               </div>
               <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
-                Foto panggung megah atau visual utama hero section.
+                Foto panggung atau visual utama hero section.
               </p>
             </div>
-            <div className="mt-3 pt-2 border-t border-gray-200 text-[10px] text-gray-500 font-mono space-y-0.5">
-              <div>• Rekomendasi: 1080 × 1080 px (min. 548 × 500 px)</div>
-              <div>• Format: WebP / PNG (Max 2 MB)</div>
+            <div className="mt-3 pt-2 border-t border-gray-200 text-[10px] text-gray-500 font-mono">
+              • Rekomendasi: 1080 × 1080 px (WebP / PNG)
             </div>
           </div>
 
-          {/* Guide 2: Comedian Headshot */}
-          <div className="bg-gray-50 border border-gray-200 p-3.5 flex flex-col justify-between">
+          <div className="bg-gray-50 border-2 border-black p-3.5 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-900">
-                  2. Comedian Headshot
-                </span>
-                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-[#FF4500] text-white">
-                  1:1 Square
-                </span>
+                <span className="text-xs font-bold text-gray-900">2. Comedian Headshot</span>
+                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-[#FF4500] text-white">1:1 Square</span>
               </div>
               <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
                 Foto profil komika roster untuk card Lineup.
               </p>
             </div>
-            <div className="mt-3 pt-2 border-t border-gray-200 text-[10px] text-gray-500 font-mono space-y-0.5">
-              <div>• Rekomendasi: 800 × 800 px</div>
-              <div>• Style: Close-up / Mid-shot Grayscale (Max 1 MB)</div>
+            <div className="mt-3 pt-2 border-t border-gray-200 text-[10px] text-gray-500 font-mono">
+              • Rekomendasi: 1280 × 800 px (Grayscale filter)
             </div>
           </div>
 
-          {/* Guide 3: Event Flyer */}
-          <div className="bg-gray-50 border border-gray-200 p-3.5 flex flex-col justify-between">
+          <div className="bg-gray-50 border-2 border-black p-3.5 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-900">
-                  3. Event Flyer
-                </span>
-                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-black text-white">
-                  4:5 Portrait
-                </span>
+                <span className="text-xs font-bold text-gray-900">3. Dokumentasi Kegiatan</span>
+                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-black text-white">3 Slot Foto (16:9)</span>
               </div>
               <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
-                Poster acara open mic dan show berbayar TapTap.
+                Dokumentasi panggung, antusiasme penonton, dan bento galeri arsip.
               </p>
             </div>
-            <div className="mt-3 pt-2 border-t border-gray-200 text-[10px] text-gray-500 font-mono space-y-0.5">
-              <div>• Rekomendasi: 1080 × 1350 px</div>
-              <div>• Format: JPG / PNG (Max 2 MB)</div>
-            </div>
-          </div>
-
-          {/* Guide 4: Merch Product */}
-          <div className="bg-gray-50 border border-gray-200 p-3.5 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-900">
-                  4. Merch Product
-                </span>
-                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-[#FF4500] text-white">
-                  1:1 Square
-                </span>
-              </div>
-              <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
-                Foto produk kaos official, mug, dan merchandise.
-              </p>
-            </div>
-            <div className="mt-3 pt-2 border-t border-gray-200 text-[10px] text-gray-500 font-mono space-y-0.5">
-              <div>• Rekomendasi: 800 × 800 px</div>
-              <div>• Latar: Putih / Transparan PNG (Max 1 MB)</div>
+            <div className="mt-3 pt-2 border-t border-gray-200 text-[10px] text-gray-500 font-mono">
+              • Rekomendasi: 1200 × 800 px (JPG / PNG)
             </div>
           </div>
         </div>
       </div>
 
-      {/* 4. FOUR DEDICATED UPLOAD SLOTS */}
+      {/* 4. DEDICATED UPLOAD SLOTS WITH STAGING & PER-SLOT SAVE */}
       <div className="space-y-6">
-        <div className="flex items-center gap-2">
-          <Layers className="w-5 h-5 text-gray-700" />
-          <h2 className="text-base font-bold text-gray-900">
-            Dedicated Landing Page Asset Slots
-          </h2>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 bg-[#FF4500] border border-black inline-block" />
+            <h2 className="text-base font-bold text-gray-900 uppercase font-['Space_Mono',monospace]">
+              Dedicated Asset Slots (Staging & Per-Slot Save)
+            </h2>
+          </div>
+          <span className="text-xs text-gray-500 font-medium">
+            Pilih file baru atau gunakan kembali gambar yang pernah diunggah.
+          </span>
         </div>
 
-        {/* Slot 1: Hero Stage Visual */}
-        <div className="bg-white border border-gray-200 p-6 shadow-xs">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-100">
+        {/* SLOT 1: HERO VISUAL */}
+        {(() => {
+          const slotId = "hero";
+          const staged = stagedSlots[slotId];
+          const isUploading = uploadingSlot === slotId;
+          const feedback = slotFeedback[slotId];
+          const activeImage = staged ? staged.previewUrl : siteConfig.hero.url;
+
+          return (
+            <div className="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#000]">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b-2 border-black">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#FF4500]" />
+                    <h3 className="text-sm font-bold text-gray-900 uppercase font-['Space_Mono',monospace] tracking-wider">
+                      Slot 1: Hero Stage Visual
+                    </h3>
+                    {staged && (
+                      <span className="px-2 py-0.5 bg-yellow-300 text-black text-[10px] font-bold border border-black animate-pulse">
+                        {staged.source === "storage" ? "STAGING (DARI STORAGE)" : "STAGING (LOKAL)"}
+                      </span>
+                    )}
+                    {feedback && (
+                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-400">
+                        ✓ {feedback}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Visual utama panggung di header landing page.
+                  </p>
+                </div>
+
+                {/* Per-Slot Action Buttons */}
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {staged ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={isUploading}
+                        onClick={() => handleCancelPreview(slotId)}
+                        className="px-3 py-1.5 bg-white border-2 border-black text-gray-700 hover:bg-gray-100 font-bold text-xs uppercase cursor-pointer"
+                      >
+                        Cancel Preview
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isUploading}
+                        onClick={() =>
+                          handleApplySlot(slotId, "stup-timika/hero", (url) => ({
+                            ...siteConfig,
+                            hero: {
+                              ...siteConfig.hero,
+                              url,
+                              isCustom: true,
+                            },
+                          }))
+                        }
+                        className="px-4 py-1.5 bg-emerald-600 text-white border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] hover:bg-emerald-700 active:translate-y-0.5 cursor-pointer flex items-center gap-1.5"
+                      >
+                        {isUploading ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Menyimpan...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>{staged.source === "storage" ? "Terapkan Aset" : "Upload & Apply"}</span>
+                          </>
+                        )}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {(siteConfig.hero.url || siteConfig.hero.isCustom) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm("Hapus gambar panggung dari Slot 1: Hero Visual?")) {
+                              handleResetSlot(slotId, () => ({
+                                ...siteConfig,
+                                hero: { ...defaultSiteConfig.hero, url: null, isCustom: false },
+                              }));
+                            }
+                          }}
+                          className="px-3.5 py-1.5 bg-red-100 hover:bg-red-600 hover:text-white text-red-800 border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer flex items-center gap-1.5 transition-colors active:translate-y-0.5"
+                          title="Hapus gambar dari Slot 1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Hapus Gambar</span>
+                        </button>
+                      )}
+
+                      {/* Pick from previously uploaded images */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenMediaPicker(slotId, "BANNER")}
+                        className="px-3.5 py-1.5 bg-[#FFF8F6] text-black hover:bg-yellow-300 border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer flex items-center gap-1.5 active:translate-y-0.5"
+                        title="Pilih gambar yang pernah diunggah sebelumnya"
+                      >
+                        <Images className="w-3.5 h-3.5 text-[#FF4500]" />
+                        <span>Pilih Dari Storage</span>
+                      </button>
+
+                      {/* Upload new file */}
+                      <label className="px-3.5 py-1.5 bg-black text-white hover:bg-[#FF4500] border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer flex items-center gap-1.5">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload File Baru</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleStageFile(slotId, e)}
+                        />
+                      </label>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Preview Container */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mt-6 items-center">
+                <div className="md:col-span-5">
+                  <div className="w-full max-w-[340px] aspect-[4/3] bg-[#FFF8F6] border-2 border-black shadow-[6px_6px_0px_0px_#000000] relative overflow-hidden flex flex-col justify-between p-4">
+                    {activeImage ? (
+                      <>
+                        <Image
+                          src={activeImage}
+                          alt="Hero Preview"
+                          fill
+                          className="object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+                        
+                        {/* Floating quick delete button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (staged) {
+                              handleCancelPreview(slotId);
+                            } else {
+                              if (confirm("Hapus gambar panggung hero ini?")) {
+                                handleResetSlot(slotId, () => ({
+                                  ...siteConfig,
+                                  hero: { ...defaultSiteConfig.hero, url: null, isCustom: false },
+                                }));
+                              }
+                            }
+                          }}
+                          className="absolute top-2 right-2 z-20 p-1.5 bg-red-600 hover:bg-red-700 text-white border border-black shadow-[2px_2px_0px_0px_#000] cursor-pointer transition-colors"
+                          title={staged ? "Batalkan preview staging" : "Hapus gambar hero"}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <div className="relative z-10">
+                          <span
+                            className={`px-2 py-0.5 text-[10px] font-mono font-bold border border-black ${
+                              staged
+                                ? "bg-yellow-300 text-black"
+                                : "bg-black text-white"
+                            }`}
+                          >
+                            {staged
+                              ? staged.source === "storage"
+                                ? "DARI STORAGE"
+                                : "LOCAL STAGING"
+                              : "ACTIVE CLOUDINARY"}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-start">
+                          <span className="px-2 py-0.5 bg-black text-white text-[10px] font-mono font-bold">
+                            {siteConfig.hero.tag}
+                          </span>
+                          <span className="px-2 py-0.5 bg-[#FF4500] text-white text-[10px] font-mono font-bold">
+                            {siteConfig.hero.subtag}
+                          </span>
+                        </div>
+                        <div className="my-auto text-center border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_#000]">
+                          <span className="font-bold text-base text-gray-900 uppercase block">
+                            {siteConfig.hero.title}
+                          </span>
+                          <span className="font-bold text-xs text-[#FF4500] uppercase block">
+                            {siteConfig.hero.subtitle}
+                          </span>
+                        </div>
+                        <div className="text-[10px] font-mono text-gray-500 text-center">
+                          (Tampilan Bawaan Statis)
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="md:col-span-7 space-y-2 text-xs text-gray-600">
+                  <div className="font-bold text-gray-900">
+                    Status Slot:{" "}
+                    {staged ? (
+                      <span className="text-yellow-700 bg-yellow-100 px-2 py-0.5 border border-yellow-300">
+                        {staged.source === "storage"
+                          ? `Dipilih dari Storage (${staged.assetName || "gambar"})`
+                          : "Preview File Lokal (Belum Terupload)"}
+                      </span>
+                    ) : siteConfig.hero.isCustom ? (
+                      <span className="text-orange-600 bg-orange-50 px-2 py-0.5 border border-orange-200">
+                        Tersimpan di Cloudinary & Database
+                      </span>
+                    ) : (
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 border border-emerald-200">
+                        Default Typographic Card
+                      </span>
+                    )}
+                  </div>
+                  <p className="leading-relaxed">
+                    Anda dapat mengklik <strong>"Pilih Dari Storage"</strong> untuk memakai kembali gambar panggung yang pernah diunggah sebelumnya tanpa membuat upload ganda di Cloudinary.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* SLOT 2: THE LINEUP ROSTER SELECTOR (TABEL COMEDIANS - 3 SLOTS) */}
+        <div className="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#000]">
+          <div className="pb-4 border-b-2 border-black flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-orange-500" />
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-                  Slot 1: Hero Stage Visual
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                <h3 className="text-sm font-bold text-gray-900 uppercase font-['Space_Mono',monospace] tracking-wider">
+                  Slot 2: The Lineup Roster Selector (3 Komika Beranda)
                 </h3>
+                <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-blue-100 text-blue-800 border border-blue-300">
+                  SINGLE SOURCE OF TRUTH
+                </span>
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                Visual utama hero kanan di halaman depan (Home). Mengisi frame cetakan tanpa distorsi.
+                Pilih tepat 3 komika dari database yang akan tampil di seksi <strong>THE LINEUP</strong> beranda. Foto headshot, nama panggung, dan punchline langsung sinkron tanpa upload ulang.
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5">
-              {siteConfig.hero.isCustom && (
-                <button
-                  type="button"
-                  onClick={handleResetHero}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xs transition-colors cursor-pointer"
-                  title="Kembalikan ke tampilan grafis tipografi bawaan"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Reset to Default</span>
-                </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={fetchComedians}
+                disabled={loadingComedians}
+                className="p-2 border border-black bg-white hover:bg-gray-100 text-gray-800 transition-colors shadow-[2px_2px_0px_0px_#000]"
+                title="Muat ulang data komika"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingComedians ? "animate-spin" : ""}`} />
+              </button>
+
+              <Link
+                href="/comedians"
+                className="inline-flex items-center gap-1 px-3 py-2 bg-[#FFF8F6] hover:bg-yellow-200 text-gray-900 text-xs font-mono font-bold border border-black shadow-[2px_2px_0px_0px_#000] transition-colors"
+                title="Buka halaman manajemen komika"
+              >
+                <span>Kelola Profil Komika</span>
+                <ExternalLink className="w-3 h-3" />
+              </Link>
+
+              <button
+                type="button"
+                disabled={isSavingLineup || loadingComedians}
+                onClick={handleSaveLineup}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-black hover:bg-[#FF4500] text-white text-xs font-mono font-bold border border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isSavingLineup ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Check className="w-3.5 h-3.5" />
+                )}
+                <span>{isSavingLineup ? "Menyimpan..." : "Simpan Lineup"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Success Banner */}
+          {lineupSuccessMsg && (
+            <div className="mt-4 p-3 bg-emerald-100 border-2 border-emerald-600 text-emerald-900 text-xs font-mono font-bold flex items-center gap-2">
+              <Check className="w-4 h-4 text-emerald-700" />
+              <span>{lineupSuccessMsg}</span>
+            </div>
+          )}
+
+          {/* Loading state indicator */}
+          {loadingComedians && comediansList.length === 0 ? (
+            <div className="mt-6 p-12 text-center text-xs text-gray-500 font-mono border-2 border-dashed border-gray-300">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#FF4500]" />
+              <span>Memuat data komika dari database Neon...</span>
+            </div>
+          ) : (
+            /* 3 Dedicated Lineup Slots */
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {[
+                {
+                  slotNum: 1,
+                  label: "POSISI #1 (KIRI)",
+                  sublabel: "Opener / Featured #1",
+                  selectedId: selectedSlot1Id,
+                  setSelectedId: setSelectedSlot1Id,
+                },
+                {
+                  slotNum: 2,
+                  label: "POSISI #2 (TENGAH)",
+                  sublabel: "Headliner / Featured #2",
+                  selectedId: selectedSlot2Id,
+                  setSelectedId: setSelectedSlot2Id,
+                },
+                {
+                  slotNum: 3,
+                  label: "POSISI #3 (KANAN)",
+                  sublabel: "Closer / Featured #3",
+                  selectedId: selectedSlot3Id,
+                  setSelectedId: setSelectedSlot3Id,
+                },
+              ].map(({ slotNum, label, sublabel, selectedId, setSelectedId }) => {
+                const comedian = comediansList.find((c) => c.id === selectedId);
+
+                return (
+                  <div
+                    key={slotNum}
+                    className="border-2 border-black bg-white p-5 shadow-[4px_4px_0px_0px_#000] flex flex-col justify-between"
+                  >
+                    <div>
+                      {/* Slot Card Header */}
+                      <div className="pb-3 border-b-2 border-black flex items-center justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#FF4500]" />
+                            <span className="text-xs font-black uppercase font-mono tracking-wider text-black">
+                              {label}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-gray-500 font-mono block">
+                            {sublabel}
+                          </span>
+                        </div>
+                        <span className="text-xs font-mono font-black bg-black text-white px-2 py-0.5 shadow-[2px_2px_0px_0px_#FF4500]">
+                          SLOT 0{slotNum}
+                        </span>
+                      </div>
+
+                      {/* Dropdown Selector */}
+                      <div className="mt-3">
+                        <label className="text-[11px] font-mono font-bold text-gray-700 block mb-1.5 uppercase">
+                          Pilih Komika:
+                        </label>
+                        <select
+                          value={selectedId}
+                          onChange={(e) => setSelectedId(e.target.value)}
+                          className="w-full bg-white border-2 border-black p-2 text-xs font-mono font-bold text-black focus:outline-none focus:ring-2 focus:ring-[#FF4500] shadow-[2px_2px_0px_0px_#000]"
+                        >
+                          <option value="">-- Kosongkan Posisi Ini --</option>
+                          {comediansList.map((c) => {
+                            const isPickedInOther =
+                              (slotNum !== 1 && selectedSlot1Id === c.id) ||
+                              (slotNum !== 2 && selectedSlot2Id === c.id) ||
+                              (slotNum !== 3 && selectedSlot3Id === c.id);
+
+                            return (
+                              <option key={c.id} value={c.id}>
+                                {c.stageName} ({c.realName}) - {c.comedyStyle || "Stand-up"}
+                                {isPickedInOther ? " ⚠️ (Dipilih di slot lain)" : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      {/* Preview Body */}
+                      <div className="mt-4">
+                        {comedian ? (
+                          <div className="border border-black bg-[#FFF8F6] p-3.5 space-y-3">
+                            <div className="flex items-start gap-3">
+                              <div className="relative w-20 h-20 bg-black border-2 border-black overflow-hidden shrink-0 shadow-[2px_2px_0px_0px_#000]">
+                                {comedian.avatarUrl ? (
+                                  <Image
+                                    src={comedian.avatarUrl}
+                                    alt={comedian.stageName}
+                                    fill
+                                    className="object-cover filter grayscale contrast-125 hover:grayscale-0 transition-all"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 font-bold text-xs bg-gray-900">
+                                    <ImageIcon className="w-6 h-6 mb-1 text-gray-500" />
+                                    <span className="text-[8px] font-mono">NO PIC</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-black text-sm text-gray-900 font-mono truncate">
+                                    {comedian.stageName}
+                                  </span>
+                                  <span className="text-[10px] font-mono px-1.5 py-0.5 bg-black text-white font-bold">
+                                    {comedian.comedyStyle || "Stand-up"}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-gray-600 block truncate mt-0.5 font-mono">
+                                  {comedian.realName}
+                                </span>
+                                <p className="text-[11px] text-gray-700 line-clamp-2 mt-1.5 italic font-serif">
+                                  &quot;{comedian.punchline || comedian.bio || "Standupindo Timika Comedian"}&quot;
+                                </p>
+                              </div>
+                            </div>
+
+                            {!comedian.avatarUrl && (
+                              <div className="p-2 bg-amber-50 border border-amber-300 text-amber-900 text-[10px] font-mono flex items-center justify-between gap-1">
+                                <span>⚠️ Belum ada foto profil</span>
+                                <Link
+                                  href="/comedians"
+                                  className="text-black font-bold underline"
+                                >
+                                  Upload Foto →
+                                </Link>
+                              </div>
+                            )}
+
+                            <div className="pt-2 border-t border-gray-300 flex items-center justify-between text-[10px] font-mono text-gray-600">
+                              <span>{comedian.totalOpenMic || 0} Sets Panggung</span>
+                              <span className={comedian.isActive ? "text-emerald-700 font-bold" : "text-gray-400"}>
+                                {comedian.isActive ? "● Aktif di Web" : "○ Nonaktif"}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="border-2 border-dashed border-gray-300 p-8 text-center bg-gray-50">
+                            <ImageIcon className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                            <p className="text-xs font-mono font-bold text-gray-500">
+                              Slot Kosong
+                            </p>
+                            <p className="text-[11px] font-mono text-gray-400 mt-1">
+                              Pilih komika dari dropdown di atas untuk mengisi {label}.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Slot Footer Action */}
+                    <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between">
+                      {selectedId ? (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId("")}
+                          className="text-[11px] font-mono font-bold text-red-600 hover:text-red-800 hover:underline cursor-pointer"
+                        >
+                          ✕ Kosongkan Slot {slotNum}
+                        </button>
+                      ) : (
+                        <span className="text-[11px] font-mono text-gray-400">
+                          Belum ada komika terpilih
+                        </span>
+                      )}
+                      <span className="text-[10px] font-mono text-gray-500 font-bold">
+                        Tampil di Kartu #{slotNum}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Bottom Save Reminder & Summary */}
+          <div className="mt-6 pt-4 border-t-2 border-black flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#FFF8F6] p-4 border border-black shadow-[2px_2px_0px_0px_#000]">
+            <div className="text-xs font-mono text-gray-700 flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
+              <span className="font-bold text-black uppercase">Konfigurasi Saat Ini:</span>
+              <span className="font-bold text-[#FF4500]">
+                #1 {comediansList.find((c) => c.id === selectedSlot1Id)?.stageName || "(Kosong)"}
+              </span>
+              <span className="text-gray-400 font-bold">→</span>
+              <span className="font-bold text-[#FF4500]">
+                #2 {comediansList.find((c) => c.id === selectedSlot2Id)?.stageName || "(Kosong)"}
+              </span>
+              <span className="text-gray-400 font-bold">→</span>
+              <span className="font-bold text-[#FF4500]">
+                #3 {comediansList.find((c) => c.id === selectedSlot3Id)?.stageName || "(Kosong)"}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              disabled={isSavingLineup || loadingComedians}
+              onClick={handleSaveLineup}
+              className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-black hover:bg-[#FF4500] text-white text-xs font-mono font-bold border border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer disabled:opacity-50 shrink-0"
+            >
+              {isSavingLineup ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Check className="w-3.5 h-3.5" />
               )}
-
-              <label className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold rounded-xs transition-colors cursor-pointer">
-                <Upload className="w-3.5 h-3.5" />
-                <span>Upload Custom Hero</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleHeroUpload}
-                />
-              </label>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mt-6 items-center">
-            {/* Live Visual Preview Frame */}
-            <div className="md:col-span-6 lg:col-span-5">
-              <div className="w-full max-w-[340px] aspect-[4/3] bg-[#FFF8F6] border-2 border-black shadow-[6px_6px_0px_0px_#000000] relative overflow-hidden flex flex-col justify-between p-4 mx-auto md:mx-0">
-                {siteConfig.hero.url ? (
-                  <>
-                    <Image
-                      src={siteConfig.hero.url}
-                      alt="Hero Preview"
-                      fill
-                      className="object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/30 pointer-events-none" />
-                    <div className="relative z-10 flex justify-between">
-                      <span className="px-2 py-0.5 bg-black text-white text-[10px] font-mono font-bold">
-                        CUSTOM UPLOAD
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex justify-between items-start">
-                      <span className="px-2 py-0.5 bg-black text-white text-[10px] font-mono font-bold">
-                        {siteConfig.hero.tag}
-                      </span>
-                      <span className="px-2 py-0.5 bg-[#FF4500] text-white text-[10px] font-mono font-bold">
-                        {siteConfig.hero.subtag}
-                      </span>
-                    </div>
-
-                    <div className="my-auto text-center border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_#000000]">
-                      <span className="font-bold text-lg text-gray-900 uppercase block">
-                        {siteConfig.hero.title}
-                      </span>
-                      <span className="font-bold text-sm text-[#FF4500] uppercase block">
-                        {siteConfig.hero.subtitle}
-                      </span>
-                    </div>
-
-                    <div className="text-[10px] font-mono text-gray-500 text-center">
-                      (Tampilan Bawaan Tipografi Statis)
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Status explanation */}
-            <div className="md:col-span-6 lg:col-span-7 space-y-3 text-xs text-gray-600">
-              <div className="flex items-center gap-2 text-gray-900 font-semibold">
-                <span>Status Saat Ini:</span>
-                {siteConfig.hero.isCustom ? (
-                  <span className="text-orange-600 font-bold bg-orange-50 px-2 py-0.5 border border-orange-200">
-                    Menggunakan Foto Upload Kustom
-                  </span>
-                ) : (
-                  <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 border border-emerald-200">
-                    Tampilan Bawaan Statis (Typographic Card)
-                  </span>
-                )}
-              </div>
-              <p className="leading-relaxed">
-                Di landing page publik, gambar ini dibungkus kontainer fixed aspect ratio berbingkai hitam tebal (<code className="bg-gray-100 px-1 py-0.5 text-gray-800">border-4 border-black</code>) dengan hard drop shadow. Rasio 1:1 atau 4:5 sangat disarankan agar panggung tidak terpotong.
-              </p>
-            </div>
+              <span>{isSavingLineup ? "Menyimpan..." : "SIMPAN 3 KOMIKA LINEUP"}</span>
+            </button>
           </div>
         </div>
 
-        {/* Slot 2: Comedians / Lineup Headshots */}
-        <div className="bg-white border border-gray-200 p-6 shadow-xs">
-          <div className="flex items-center justify-between pb-4 border-b border-gray-100">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500" />
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-                  Slot 2: Comedians / Lineup Headshots
-                </h3>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Foto headshot komika roster pada seksi THE LINEUP (Rasio 1:1 Square, auto grayscale filter).
-              </p>
+        {/* SLOT 3: DOKUMENTASI KEGIATAN (3 SLOTS) */}
+        <div className="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#000]">
+          <div className="pb-4 border-b-2 border-black">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              <h3 className="text-sm font-bold text-gray-900 uppercase font-['Space_Mono',monospace] tracking-wider">
+                Slot 3: Dokumentasi Kegiatan (3 Slot)
+              </h3>
             </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Panduan spesifikasi: Rasio 16:9 atau 4:3 (Dokumentasi panggung/kegiatan komunitas, Max: 2 MB). Terhubung langsung ke 3 kartu bento galeri kegiatan di landing page web dan halaman About.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-            {siteConfig.comedians.map((c) => (
-              <div
-                key={c.id}
-                className="border border-gray-200 p-4 bg-gray-50/50 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between pb-2 border-b border-gray-200">
-                    <span className="font-bold text-xs text-gray-900">
-                      {c.name}
-                    </span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 bg-black text-white">
-                      {c.badge}
-                    </span>
+            {siteConfig.flyers.slice(0, 3).map((f, idx) => {
+              const slotNum = idx + 1;
+              const slotLabel = `Dokumentasi Kegiatan #${slotNum}`;
+              const slotId = `flyer-${f.id || `activity-doc-${slotNum}`}`;
+              const staged = stagedSlots[slotId];
+              const isUploading = uploadingSlot === slotId;
+              const feedback = slotFeedback[slotId];
+              const activePhoto = staged
+                ? staged.previewUrl
+                : (f.url || f.imageUrl || f.flyerUrl || null);
+
+              return (
+                <div
+                  key={f.id || idx}
+                  className="border-2 border-black p-4 bg-gray-50 flex flex-col justify-between shadow-[3px_3px_0px_0px_#000]"
+                >
+                  <div>
+                    {/* Slot Header with Slot Label */}
+                    <div className="flex items-center justify-between pb-2 border-b border-gray-300">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="px-1.5 py-0.5 bg-black text-white text-[9px] font-bold uppercase font-mono">
+                          Slot {slotNum}
+                        </span>
+                        <span className="font-bold text-xs text-gray-900 truncate">
+                          {slotLabel}
+                        </span>
+                      </div>
+                      {f.badge && (
+                        <span className="px-1.5 py-0.5 bg-[#FF4500] text-white text-[8px] font-bold uppercase font-mono ml-2 shrink-0 border border-black">
+                          {f.badge}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 text-[10px] text-gray-600 font-mono flex items-center justify-between">
+                      <span className="truncate font-semibold text-gray-800">{f.title}</span>
+                      <span className="shrink-0 text-gray-500 ml-1">{f.venue}</span>
+                    </div>
+
+                    {/* Area Preview Staging foto */}
+                    <div className="mt-3 aspect-[16/9] max-h-[220px] bg-white border-2 border-black relative overflow-hidden flex items-center justify-center mx-auto w-full shadow-[2px_2px_0px_0px_#000]">
+                      {activePhoto ? (
+                        <Image
+                          src={activePhoto}
+                          alt={slotLabel}
+                          fill
+                          unoptimized
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="text-center p-3">
+                          <ImageIcon className="w-6 h-6 text-gray-300 mx-auto mb-1" />
+                          <span className="text-[11px] text-gray-400 font-mono block">
+                            Format Arsip Teks Bawaan
+                          </span>
+                        </div>
+                      )}
+
+                      {staged && (
+                        <div className="absolute top-2 left-2 z-10 px-1.5 py-0.5 bg-yellow-300 border border-black text-[9px] font-bold shadow-[1px_1px_0px_0px_#000]">
+                          {staged.source === "storage" ? "STORAGE PREVIEW" : "STAGING PREVIEW"}
+                        </div>
+                      )}
+                    </div>
+
+                    {feedback && (
+                      <div className="mt-2 p-1.5 text-center bg-emerald-100 border border-emerald-400 text-emerald-800 text-[10px] font-bold">
+                        ✓ {feedback}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Thumbnail Preview */}
-                  <div className="mt-3 aspect-square bg-white border border-gray-300 relative overflow-hidden flex items-center justify-center">
-                    {c.avatarUrl ? (
-                      <Image
-                        src={c.avatarUrl}
-                        alt={c.name}
-                        fill
-                        className="object-cover filter grayscale contrast-125"
-                      />
+                  {/* Tombol aksi mandiri: Upload & Apply, Cancel Preview, Reset to Default */}
+                  <div className="mt-4 pt-3 border-t-2 border-black flex flex-col gap-2">
+                    {staged ? (
+                      <div className="flex items-center gap-1.5 w-full">
+                        <button
+                          type="button"
+                          disabled={isUploading}
+                          onClick={() => handleCancelPreview(slotId)}
+                          className="flex-1 py-1.5 text-[11px] font-bold border border-black bg-white hover:bg-gray-100 shadow-[1px_1px_0px_0px_#000] cursor-pointer"
+                        >
+                          Cancel Preview
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isUploading}
+                          onClick={() =>
+                            handleApplySlot(slotId, "stup-timika/documentation", (url) => ({
+                              ...siteConfig,
+                              flyers: siteConfig.flyers.map((item, i) =>
+                                i === idx || item.id === f.id
+                                  ? { ...item, url, flyerUrl: url, imageUrl: url, isCustom: true }
+                                  : item
+                              ),
+                            }))
+                          }
+                          className="flex-1 py-1.5 text-[11px] font-bold border border-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1 shadow-[1px_1px_0px_0px_#000] cursor-pointer"
+                        >
+                          {isUploading ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            "Upload & Apply"
+                          )}
+                        </button>
+                      </div>
                     ) : (
-                      <div className="text-center p-3">
-                        <ImageIcon className="w-6 h-6 text-gray-300 mx-auto mb-1" />
-                        <span className="text-[11px] text-gray-400 font-mono block">
-                          Card Bawaan
-                        </span>
+                      <div className="flex items-center justify-between gap-1.5">
+                        {(f.flyerUrl || f.imageUrl || f.url || f.isCustom) ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Reset ${slotLabel} (${f.title}) ke aset default?`)) {
+                                handleResetSlot(slotId, () => ({
+                                  ...siteConfig,
+                                  flyers: siteConfig.flyers.map((item, i) =>
+                                    i === idx || item.id === f.id
+                                      ? { ...item, url: null, flyerUrl: null, imageUrl: null, isCustom: false }
+                                      : item
+                                  ),
+                                }));
+                              }
+                            }}
+                            className="text-[10px] font-bold text-red-700 hover:text-white hover:bg-red-600 flex items-center gap-1 cursor-pointer bg-red-100 border border-black px-2 py-1 shadow-[1px_1px_0px_0px_#000] transition-colors"
+                            title="Reset slot ke foto/teks bawaan"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Reset to Default</span>
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-gray-400 font-mono italic">Default</span>
+                        )}
+
+                        <div className="flex items-center gap-1 ml-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenMediaPicker(slotId, "DOCUMENTATION")}
+                            className="p-1.5 bg-[#FFF8F6] border border-black text-black hover:bg-yellow-300 shadow-[1px_1px_0px_0px_#000] cursor-pointer transition-colors"
+                            title="Pilih foto dokumentasi dari Cloudinary Storage"
+                          >
+                            <Images className="w-3.5 h-3.5 text-[#FF4500]" />
+                          </button>
+                          <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-black hover:bg-[#FF4500] text-white text-[10px] font-bold border border-black shadow-[1px_1px_0px_0px_#000] cursor-pointer transition-colors">
+                            <Upload className="w-3 h-3" />
+                            <span>Upload</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleStageFile(slotId, e)}
+                            />
+                          </label>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
-
-                <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between gap-2">
-                  {c.isCustom && (
-                    <button
-                      type="button"
-                      onClick={() => handleResetComedian(c.id)}
-                      className="text-[11px] text-gray-500 hover:text-gray-900 flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Reset</span>
-                    </button>
-                  )}
-
-                  <label className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 bg-gray-900 hover:bg-gray-800 text-white text-[11px] font-semibold transition-colors cursor-pointer">
-                    {uploadingSlot === `comedian-${c.id}` ? (
-                      <>
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        <span>Uploading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-3 h-3" />
-                        <span>Upload Foto</span>
-                      </>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={uploadingSlot === `comedian-${c.id}`}
-                      className="hidden"
-                      onChange={(e) => handleComedianUpload(c.id, e)}
-                    />
-                  </label>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Slot 3: Upcoming Show Flyers */}
-        <div className="bg-white border border-gray-200 p-6 shadow-xs">
-          <div className="flex items-center justify-between pb-4 border-b border-gray-100">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-                  Slot 3: Upcoming Show Flyers
-                </h3>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Poster flyer pertunjukan panggung TapTap (Rasio 4:5 Portrait).
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-            {siteConfig.flyers.map((f) => (
-              <div
-                key={f.id}
-                className="border border-gray-200 p-4 bg-gray-50/50 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between pb-2 border-b border-gray-200">
-                    <span className="font-bold text-xs text-gray-900">
-                      {f.title}
-                    </span>
-                    <span className="text-[10px] text-gray-500">{f.venue}</span>
-                  </div>
-
-                  <div className="mt-3 aspect-[4/5] max-h-[220px] bg-white border border-gray-300 relative overflow-hidden flex items-center justify-center mx-auto w-full">
-                    {f.flyerUrl ? (
-                      <Image
-                        src={f.flyerUrl}
-                        alt={f.title}
-                        fill
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="text-center p-3">
-                        <ImageIcon className="w-6 h-6 text-gray-300 mx-auto mb-1" />
-                        <span className="text-[11px] text-gray-400 font-mono block">
-                          Format Text Jadwal Bawaan
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between gap-2">
-                  {f.isCustom && (
-                    <button
-                      type="button"
-                      onClick={() => handleResetFlyer(f.id)}
-                      className="text-[11px] text-gray-500 hover:text-gray-900 flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Reset</span>
-                    </button>
-                  )}
-
-                  <label className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 bg-gray-900 hover:bg-gray-800 text-white text-[11px] font-semibold transition-colors cursor-pointer">
-                    {uploadingSlot === `flyer-${f.id}` ? (
-                      <>
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        <span>Uploading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-3 h-3" />
-                        <span>Upload Flyer</span>
-                      </>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={uploadingSlot === `flyer-${f.id}`}
-                      className="hidden"
-                      onChange={(e) => handleFlyerUpload(f.id, e)}
-                    />
-                  </label>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Slot 4: Store Merchandise Items */}
-        <div className="bg-white border border-gray-200 p-6 shadow-xs">
-          <div className="flex items-center justify-between pb-4 border-b border-gray-100">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-                  Slot 4: Store Merchandise Items
-                </h3>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Visual produk merch official (Rasio 1:1 Square, latar bersih/transparan).
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-            {siteConfig.merch.map((m) => (
-              <div
-                key={m.id}
-                className="border border-gray-200 p-4 bg-gray-50/50 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between pb-2 border-b border-gray-200">
-                    <span className="font-bold text-xs text-gray-900">
-                      {m.name}
-                    </span>
-                    <span className="text-[11px] font-bold text-orange-600">
-                      {m.price}
-                    </span>
-                  </div>
-
-                  <div className="mt-3 aspect-square max-h-[180px] bg-white border border-gray-300 relative overflow-hidden flex items-center justify-center mx-auto w-full">
-                    {m.imageUrl ? (
-                      <Image
-                        src={m.imageUrl}
-                        alt={m.name}
-                        fill
-                        className="object-contain p-2"
-                      />
-                    ) : (
-                      <div className="text-center p-3">
-                        <ImageIcon className="w-6 h-6 text-gray-300 mx-auto mb-1" />
-                        <span className="text-[11px] text-gray-400 font-mono block">
-                          Mock Box Tipografi Bawaan
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between gap-2">
-                  {m.isCustom && (
-                    <button
-                      type="button"
-                      onClick={() => handleResetMerch(m.id)}
-                      className="text-[11px] text-gray-500 hover:text-gray-900 flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Reset</span>
-                    </button>
-                  )}
-
-                  <label className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 bg-gray-900 hover:bg-gray-800 text-white text-[11px] font-semibold transition-colors cursor-pointer">
-                    {uploadingSlot === `merch-${m.id}` ? (
-                      <>
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        <span>Uploading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-3 h-3" />
-                        <span>Upload Foto Produk</span>
-                      </>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={uploadingSlot === `merch-${m.id}`}
-                      className="hidden"
-                      onChange={(e) => handleMerchUpload(m.id, e)}
-                    />
-                  </label>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
 
-      {/* 5. General Media & Asset Storage Explorer */}
+      {/* 5. PARTNERS & SPONSORS MANAGER */}
+      <div className="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#000] space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b-2 border-black">
+          <div>
+            <div className="flex items-center gap-2">
+              <Handshake className="w-5 h-5 text-[#FF4500]" />
+              <h2 className="text-base font-bold text-gray-900 uppercase font-['Space_Mono',monospace]">
+                Partners & Sponsors Manager
+              </h2>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Kelola logo brand dan partner resmi yang tampil di continuous marquee ticker landing page web.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Add Partner Button */}
+            <button
+              type="button"
+              onClick={openCreatePartnerModal}
+              className="px-4 py-1.5 bg-black text-white hover:bg-[#FF4500] border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer flex items-center gap-1.5 active:translate-y-0.5 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Add Partner / Sponsor</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Partners Cards Grid */}
+        {partners.length === 0 ? (
+          <div className="bg-gray-50 border-2 border-dashed border-gray-300 p-8 text-center text-xs font-mono text-gray-500">
+            Belum ada partner atau sponsor terdaftar. Klik "+ Add Partner / Sponsor" untuk menambahkan brand.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {partners.map((partner) => (
+              <div
+                key={partner.id}
+                className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000] flex flex-col justify-between overflow-hidden group hover:shadow-[6px_6px_0px_0px_#000] transition-all"
+              >
+                {/* Logo Frame with Checkerboard / Transparency Container */}
+                <div className="p-3 bg-gray-50 border-b-2 border-black">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="px-2 py-0.5 bg-black text-white font-mono text-[10px] font-bold">
+                      ORDER #{partner.sortOrder}
+                    </span>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono text-[9px] font-bold uppercase">
+                      ACTIVE
+                    </span>
+                  </div>
+
+                  <div className="h-28 w-full bg-white border-2 border-black relative overflow-hidden flex items-center justify-center p-3 shadow-[2px_2px_0px_0px_#000]">
+                    {partner.logoUrl ? (
+                      <Image
+                        src={partner.logoUrl}
+                        alt={partner.name}
+                        fill
+                        unoptimized
+                        className="object-contain p-2 filter grayscale contrast-125 group-hover:grayscale-0 transition-all duration-200"
+                      />
+                    ) : (
+                      <span className="text-xs text-gray-400 font-mono">No Logo</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Details & Actions */}
+                <div className="p-3 flex flex-col justify-between flex-1 gap-3 bg-white">
+                  <div>
+                    <h4 className="font-bold text-sm text-gray-900 truncate font-['Space_Mono',monospace]">
+                      {partner.name}
+                    </h4>
+                    {partner.websiteUrl ? (
+                      <a
+                        href={partner.websiteUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline font-mono truncate max-w-full mt-0.5"
+                      >
+                        <Globe className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{partner.websiteUrl.replace(/^https?:\/\//, "")}</span>
+                      </a>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 font-mono">Tanpa link website</span>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-200 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditPartnerModal(partner)}
+                      className="flex-1 py-1 px-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold border border-black flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDeletingPartnerId === partner.id}
+                      onClick={() => handleDeletePartner(partner.id, partner.name)}
+                      className="py-1 px-2.5 bg-red-50 hover:bg-red-600 hover:text-white text-red-700 text-xs font-bold border border-black flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-[1px_1px_0px_0px_#000]"
+                      title="Hapus partner"
+                    >
+                      {isDeletingPartnerId === partner.id ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3 h-3" />
+                      )}
+                      <span>Hapus</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 6. General Media & Asset Storage Explorer (Real Image Previews) */}
       <div className="pt-4 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -951,94 +1527,575 @@ export default function MediaAssetsAdminPage() {
               Media Asset Storage Explorer
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Daftar seluruh file yang telah terunggah di media repository
+              Daftar seluruh file yang telah terunggah di Cloudinary & Neon DB ({assets.length} file)
             </p>
           </div>
 
-          {/* Filter Tabs */}
           <div className="flex flex-wrap gap-1.5">
-            {["ALL", "BANNER", "FLYER", "HEADSHOT", "DOCUMENTATION"].map(
-              (type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setSelectedType(type)}
-                  className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
-                    selectedType === type
-                      ? "bg-gray-900 text-white"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-600"
-                  }`}
-                >
-                  {type}
-                </button>
-              )
-            )}
+            {["ALL", "BANNER", "FLYER", "HEADSHOT", "DOCUMENTATION"].map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => handleSelectType(type)}
+                className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer border border-black ${
+                  selectedType === type
+                    ? "bg-black text-white"
+                    : "bg-white hover:bg-gray-100 text-gray-800"
+                }`}
+              >
+                {type}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Media Grid Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredAssets.map((asset) => (
-            <div
-              key={asset.id}
-              className="bg-white border border-gray-200 shadow-xs flex flex-col justify-between overflow-hidden group hover:border-gray-400 transition-all"
-            >
-              <div className="h-36 bg-gray-900 flex flex-col justify-between p-3 relative overflow-hidden">
-                <div className="flex justify-between items-start z-10">
-                  <span className="px-2 py-0.5 bg-white/90 text-gray-900 text-[10px] font-bold uppercase tracking-wider">
-                    {asset.type}
-                  </span>
-                  <span className="text-[10px] text-white/70 font-mono">
-                    {asset.size}
-                  </span>
+        {/* Real Thumbnail Cards (12 per page in grid-cols-2 md:grid-cols-3 lg:grid-cols-4) */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {paginatedAssets.length === 0 ? (
+            <div className="col-span-full bg-white border-2 border-black p-8 text-center text-gray-500 font-mono text-xs">
+              Belum ada file media yang tersimpan di storage untuk kategori ini.
+            </div>
+          ) : (
+            paginatedAssets.map((asset) => (
+              <div
+                key={asset.id}
+                className={`bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000] flex flex-col justify-between overflow-hidden group hover:shadow-[6px_6px_0px_0px_#000] transition-all relative ${
+                  isDeletingId === asset.id ? "opacity-40 pointer-events-none" : ""
+                }`}
+              >
+                {/* Visual Thumbnail Area */}
+                <div className="h-36 bg-gray-900 flex flex-col justify-between p-2.5 sm:p-3 relative overflow-hidden">
+                  {asset.url && (
+                    <Image
+                      src={asset.url}
+                      alt={asset.name}
+                      fill
+                      unoptimized
+                      className="object-cover opacity-85 group-hover:opacity-100 transition-opacity"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+
+                  {/* Top Bar: Badge & Trash Icon */}
+                  <div className="flex justify-between items-start z-10 relative">
+                    <span className="px-2 py-0.5 bg-white text-gray-900 text-[10px] font-bold uppercase tracking-wider">
+                      {asset.type}
+                    </span>
+
+                    {/* Small Red Trash Icon at Top Right Corner */}
+                    <button
+                      type="button"
+                      disabled={isDeletingId === asset.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRequestDeleteAsset(asset);
+                      }}
+                      className="p-1.5 bg-red-600 hover:bg-red-700 text-white border border-black cursor-pointer transition-transform hover:scale-105 shadow-[1px_1px_0px_0px_#000]"
+                      title="Hapus aset Cloudinary ini"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  <div className="my-auto z-10 relative">
+                    <span className="text-[11px] text-white font-mono font-bold block px-1 truncate drop-shadow-md">
+                      {asset.name}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[10px] text-white/70 z-10 relative font-mono">
+                    <span className="truncate">{asset.uploadedAt}</span>
+                    <span className="bg-black/60 px-1 font-bold text-white/90 shrink-0">{asset.size}</span>
+                  </div>
                 </div>
 
-                <div className="my-auto text-center z-10">
-                  <ImageIcon className="w-6 h-6 text-white/40 mx-auto mb-1" />
-                  <span className="text-[11px] text-white font-mono block px-2 truncate">
-                    {asset.name}
-                  </span>
-                </div>
+                {/* Card Action Bar */}
+                <div className="p-2.5 bg-white border-t-2 border-black flex items-center justify-between text-xs">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyUrl(asset.id, asset.url)}
+                    className="flex items-center gap-1 text-gray-700 hover:text-black font-bold cursor-pointer"
+                  >
+                    {copiedId === asset.id ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-600 text-[11px]">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span className="text-[11px]">Copy URL</span>
+                      </>
+                    )}
+                  </button>
 
-                <div className="text-[10px] text-white/50 z-10">
-                  Uploaded: {asset.uploadedAt}
+                  <button
+                    type="button"
+                    disabled={isDeletingId === asset.id}
+                    onClick={() => handleRequestDeleteAsset(asset)}
+                    className="px-2.5 py-1 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 font-bold border border-black text-[11px] uppercase flex items-center gap-1 cursor-pointer transition-colors shadow-[1px_1px_0px_0px_#000]"
+                    title="Hapus gambar secara permanen dari Cloudinary"
+                  >
+                    {isDeletingId === asset.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3 h-3" />
+                    )}
+                    <span>Hapus</span>
+                  </button>
                 </div>
               </div>
+            ))
+          )}
+        </div>
 
-              <div className="p-2.5 bg-white border-t border-gray-200 flex items-center justify-between text-xs">
+        {/* Neo-Brutalism Pagination Controls */}
+        {filteredAssets.length > 0 && (
+          <div className="pt-4 border-t-2 border-black flex flex-col sm:flex-row items-center justify-between gap-4 select-none">
+            <div className="font-mono text-xs font-bold text-gray-600">
+              Menampilkan {paginatedAssets.length} dari {filteredAssets.length} Aset (Page {explorerPage} of {totalPages})
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setExplorerPage((prev) => Math.max(1, prev - 1))}
+                disabled={explorerPage <= 1}
+                className="border-3 border-black shadow-[3px_3px_0px_0px_#000] font-bold px-4 py-2 text-xs uppercase bg-white hover:bg-[#FFE9E3] hover:text-[#FF4500] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all active:translate-x-[1px] active:translate-y-[1px]"
+              >
+                &lt; PREV
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                  <button
+                    key={pg}
+                    type="button"
+                    onClick={() => setExplorerPage(pg)}
+                    className={`w-8 h-8 border-2 border-black font-mono text-xs font-bold transition-all cursor-pointer ${
+                      explorerPage === pg
+                        ? "bg-[#FF4500] text-white shadow-[2px_2px_0px_0px_#000]"
+                        : "bg-white text-black hover:bg-gray-100 shadow-[1px_1px_0px_0px_#000]"
+                    }`}
+                  >
+                    {pg}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setExplorerPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={explorerPage >= totalPages}
+                className="border-3 border-black shadow-[3px_3px_0px_0px_#000] font-bold px-4 py-2 text-xs uppercase bg-white hover:bg-[#FFE9E3] hover:text-[#FF4500] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all active:translate-x-[1px] active:translate-y-[1px]"
+              >
+                NEXT &gt;
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Media Picker Modal (Select from existing uploaded images) */}
+      {isPickerOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            onClick={() => setIsPickerOpen(false)}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white border-4 border-black p-6 md:p-8 max-w-3xl w-full max-h-[85vh] flex flex-col shadow-[8px_8px_0px_0px_#000000] relative animate-in zoom-in-95 duration-150"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between pb-4 border-b-2 border-black">
+                <div>
+                  <h3 className="font-['Space_Mono',monospace] font-bold text-base md:text-lg text-gray-900 uppercase flex items-center gap-2">
+                    <FolderOpen className="w-5 h-5 text-[#FF4500]" />
+                    <span>Pilih Gambar Dari Media Storage</span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Pilih gambar yang pernah diunggah sebelumnya tanpa perlu upload ulang ke Cloudinary.
+                  </p>
+                </div>
                 <button
                   type="button"
-                  onClick={() => handleCopyUrl(asset.id, asset.url)}
-                  className="flex items-center gap-1 text-gray-600 hover:text-gray-900 font-medium cursor-pointer"
+                  onClick={() => setIsPickerOpen(false)}
+                  className="p-1 text-gray-500 hover:text-black cursor-pointer"
                 >
-                  {copiedId === asset.id ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="text-emerald-600 font-semibold">
-                        Copied!
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy URL</span>
-                    </>
-                  )}
+                  <X className="w-5 h-5" />
                 </button>
+              </div>
 
+              {/* Type Filter Bar */}
+              <div className="py-3 flex flex-wrap gap-1.5 border-b border-gray-200">
+                {["ALL", "BANNER", "HEADSHOT", "FLYER", "DOCUMENTATION"].map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setPickerTypeFilter(type)}
+                    className={`px-2.5 py-1 text-xs font-bold uppercase transition-colors cursor-pointer border ${
+                      pickerTypeFilter === type
+                        ? "bg-black text-white border-black shadow-[2px_2px_0px_0px_#FF4500]"
+                        : "bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-300"
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+
+              {/* Grid of Available Images */}
+              <div className="flex-1 overflow-y-auto py-4 pr-1">
+                {pickerFilteredAssets.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500 font-mono text-xs border-2 border-dashed border-gray-300">
+                    Tidak ada gambar yang cocok dengan filter ini di storage.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5">
+                    {pickerFilteredAssets.map((asset) => (
+                      <div
+                        key={asset.id}
+                        onClick={() => handleSelectAssetFromPicker(asset)}
+                        className="group bg-white border-2 border-black hover:border-[#FF4500] hover:shadow-[4px_4px_0px_0px_#000] transition-all cursor-pointer flex flex-col overflow-hidden"
+                      >
+                        {/* Thumbnail */}
+                        <div className="h-28 bg-gray-900 relative overflow-hidden">
+                          {asset.url && (
+                            <Image
+                              src={asset.url}
+                              alt={asset.name}
+                              fill
+                              unoptimized
+                              className="object-cover group-hover:scale-105 transition-transform duration-200"
+                            />
+                          )}
+                          <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors" />
+                          <div className="absolute top-1 left-1">
+                            <span className="px-1.5 py-0.2 bg-black text-white text-[9px] font-bold uppercase">
+                              {asset.type}
+                            </span>
+                          </div>
+                          <div className="absolute top-1 right-1 z-10">
+                            <button
+                              type="button"
+                              disabled={isDeletingId === asset.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRequestDeleteAsset(asset);
+                              }}
+                              className="p-1 bg-red-600/90 hover:bg-red-700 text-white border border-black cursor-pointer transition-colors shadow-[1px_1px_0px_0px_#000]"
+                              title="Hapus gambar permanen dari Cloudinary"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Title & Button */}
+                        <div className="p-2 flex flex-col justify-between flex-1">
+                          <span className="text-[11px] font-bold text-gray-900 truncate font-mono">
+                            {asset.name}
+                          </span>
+                          <span className="text-[9px] text-gray-500 font-mono">
+                            {asset.size}
+                          </span>
+                          <div className="mt-2 flex items-center gap-1">
+                            <div className="flex-1 text-center py-1 bg-gray-100 group-hover:bg-[#FF4500] group-hover:text-white text-[10px] font-bold uppercase border border-black transition-colors">
+                              Gunakan Gambar
+                            </div>
+                            <button
+                              type="button"
+                              disabled={isDeletingId === asset.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRequestDeleteAsset(asset);
+                              }}
+                              className="p-1 bg-red-100 hover:bg-red-600 hover:text-white text-red-700 border border-black cursor-pointer transition-colors shadow-[1px_1px_0px_0px_#000]"
+                              title="Hapus gambar secara permanen"
+                            >
+                              {isDeletingId === asset.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3 h-3" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="pt-3 border-t-2 border-black flex items-center justify-between">
+                <span className="text-xs text-gray-500 font-mono">
+                  {pickerFilteredAssets.length} gambar tersedia di storage
+                </span>
                 <button
                   type="button"
-                  onClick={() => handleDelete(asset.id)}
-                  className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                  title="Hapus Aset"
+                  onClick={() => setIsPickerOpen(false)}
+                  className="px-4 py-1.5 border-2 border-black font-bold text-xs uppercase hover:bg-gray-100 cursor-pointer"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  Tutup
                 </button>
               </div>
             </div>
-          ))}
+          </div>,
+          document.body
+        )}
+
+      {/* Partner Create / Edit Modal */}
+      {isPartnerModalOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            onClick={() => !isSavingPartner && setIsPartnerModalOpen(false)}
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white border-4 border-black max-w-lg w-full p-6 shadow-[8px_8px_0px_0px_#000] space-y-5 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between pb-3 border-b-2 border-black">
+                <h3 className="text-sm font-bold text-gray-900 uppercase font-['Space_Mono',monospace] tracking-wider flex items-center gap-2">
+                  <Handshake className="w-5 h-5 text-[#FF4500]" />
+                  <span>
+                    {editingPartner ? "Edit Partner / Sponsor" : "+ Add New Partner / Sponsor"}
+                  </span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsPartnerModalOpen(false)}
+                  className="p-1 hover:bg-gray-100 border border-black cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSavePartner} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-800 uppercase mb-1">
+                    Nama Brand / Partner *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={partnerName}
+                    onChange={(e) => setPartnerName(e.target.value)}
+                    placeholder="Contoh: KOPITIAM 88, TIMIKA BEATZ"
+                    className="w-full border-2 border-black p-2 text-xs font-mono focus:outline-none focus:border-[#FF4500]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-800 uppercase mb-1">
+                    Website URL / Instagram (Opsional)
+                  </label>
+                  <input
+                    type="url"
+                    value={partnerWebsite}
+                    onChange={(e) => setPartnerWebsite(e.target.value)}
+                    placeholder="https://instagram.com/kopitiam88"
+                    className="w-full border-2 border-black p-2 text-xs font-mono focus:outline-none focus:border-[#FF4500]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-800 uppercase mb-1">
+                    Urutan Tampilan (Sort Order)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={partnerOrder}
+                    onChange={(e) => setPartnerOrder(Number(e.target.value))}
+                    className="w-full border-2 border-black p-2 text-xs font-mono focus:outline-none focus:border-[#FF4500]"
+                  />
+                </div>
+
+                {/* Upload Logo with Staging */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-800 uppercase mb-1">
+                    Logo Brand (PNG/WebP Transparan Tanpa Background) *
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenMediaPicker("partner-logo", "DOCUMENTATION")}
+                      className="px-3 py-1.5 bg-[#FFF8F6] text-black hover:bg-yellow-300 border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Images className="w-3.5 h-3.5 text-[#FF4500]" />
+                      <span>Pilih Dari Storage</span>
+                    </button>
+
+                    <label className="px-3 py-1.5 bg-black text-white hover:bg-[#FF4500] border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer flex items-center gap-1.5">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Upload File Transparan</span>
+                      <input
+                        type="file"
+                        accept="image/png,image/webp,image/svg+xml"
+                        onChange={handleStagePartnerLogo}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Staged Logo Preview Box */}
+                  <div className="h-32 w-full bg-[#FFF8F6] border-2 border-black relative flex items-center justify-center p-3 shadow-[3px_3px_0px_0px_#000]">
+                    {partnerLogoStaged ? (
+                      <>
+                        <Image
+                          src={partnerLogoStaged.previewUrl}
+                          alt="Partner Logo Preview"
+                          fill
+                          unoptimized
+                          className="object-contain p-3"
+                        />
+                        <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-yellow-300 border border-black text-[9px] font-bold">
+                          {partnerLogoStaged.source === "local" ? "STAGING (LOKAL)" : "STAGING (STORAGE)"}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPartnerLogoStaged(null)}
+                          className="absolute top-1 right-1 p-1 bg-red-600 text-white border border-black cursor-pointer hover:bg-red-700"
+                          title="Hapus preview logo"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <div className="text-center p-2 text-gray-400 font-mono text-xs">
+                        Belum ada logo yang dipilih.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Modal Actions */}
+                <div className="pt-4 border-t-2 border-black flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsPartnerModalOpen(false)}
+                    className="px-4 py-2 border-2 border-black font-bold text-xs uppercase hover:bg-gray-100 cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingPartner}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingPartner ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Menyimpan ke Neon DB...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>SAVE PARTNER</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Delete Asset Confirmation Modal */}
+      {assetToDelete &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white border-4 border-black p-6 max-w-md w-full shadow-[8px_8px_0px_0px_#000000] relative space-y-4"
+            >
+              <div className="flex items-center gap-3 text-red-600">
+                <div className="w-10 h-10 bg-red-100 border-2 border-black flex items-center justify-center shrink-0 shadow-[2px_2px_0px_0px_#000]">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="font-['Space_Mono',monospace] font-bold text-base text-gray-900 uppercase">
+                    Hapus Aset Permanen?
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-1">
+                    File ini akan dihapus permanen dari Cloudinary storage dan tidak dapat dipulihkan.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-200 p-2.5 flex items-center gap-3">
+                {assetToDelete.url && (
+                  <div className="w-12 h-12 relative border border-black shrink-0 overflow-hidden bg-gray-900">
+                    <Image
+                      src={assetToDelete.url}
+                      alt={assetToDelete.name}
+                      fill
+                      unoptimized
+                      className="object-cover"
+                    />
+                  </div>
+                )}
+                <div className="text-xs truncate">
+                  <p className="font-bold text-gray-900 truncate">{assetToDelete.name}</p>
+                  <p className="text-gray-500 font-mono text-[10px] truncate">
+                    {assetToDelete.public_id || assetToDelete.id}
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t-2 border-black">
+                <button
+                  type="button"
+                  disabled={isDeletingAsset}
+                  onClick={() => setAssetToDelete(null)}
+                  className="px-4 py-2 border-2 border-black bg-white text-gray-800 text-xs font-bold uppercase shadow-[2px_2px_0px_0px_#000] hover:bg-gray-100 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeletingAsset}
+                  onClick={confirmDeleteAsset}
+                  className="px-4 py-2 border-2 border-black bg-red-600 text-white text-xs font-bold uppercase shadow-[2px_2px_0px_0px_#000] hover:bg-red-700 cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isDeletingAsset ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Menghapus...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Hapus Permanen</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Toast Feedback Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[10000] bg-emerald-500 text-white border-2 border-black shadow-[4px_4px_0px_0px_#000] px-4 py-3 font-mono text-xs font-bold flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
+          <Check className="w-4 h-4" />
+          <span>{toastMessage}</span>
         </div>
-      </div>
+      )}
     </div>
   );
 }

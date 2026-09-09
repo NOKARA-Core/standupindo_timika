@@ -17,15 +17,24 @@ export interface ComedianAssetConfig {
   isCustom: boolean;
 }
 
-export interface FlyerAssetConfig {
+export interface DocumentationAssetConfig {
   id: string;
   title: string;
-  date: string;
-  venue: string;
-  details: string;
-  flyerUrl: string | null;
+  badge?: string;
+  date?: string;
+  venue?: string;
+  details?: string;
+  flyerUrl?: string | null;
+  imageUrl?: string | null;
+  url?: string | null;
   isCustom: boolean;
 }
+
+export type FlyerAssetConfig = DocumentationAssetConfig;
+
+export const DEFAULT_STATIC_DOC_1: string | null = null;
+export const DEFAULT_STATIC_DOC_2: string | null = null;
+export const DEFAULT_STATIC_DOC_3: string | null = null;
 
 export interface MerchAssetConfig {
   id: string;
@@ -39,9 +48,11 @@ export interface MerchAssetConfig {
 
 export interface SiteAssetsConfig {
   useDynamicAssets: boolean;
+  useDynamicPartners?: boolean;
   hero: HeroAssetConfig;
   comedians: ComedianAssetConfig[];
-  flyers: FlyerAssetConfig[];
+  flyers: DocumentationAssetConfig[];
+  documentation?: DocumentationAssetConfig[];
   merch: MerchAssetConfig[];
 }
 
@@ -87,21 +98,39 @@ export const defaultSiteConfig: SiteAssetsConfig = {
   ],
   flyers: [
     {
-      id: "grind-42",
-      title: "THE GRIND (OPEN MIC)",
-      date: "FRI, OCT 13 - 8 PM",
-      venue: "THE BUNKER",
-      details: "JL. YOS SUDARSO • HOST: RIAN 'THE HAMMER'",
+      id: "activity-doc-1",
+      title: "MAIN EVENT LIVE STAGE",
+      badge: "SPECIAL SHOW",
+      date: "SPECIAL SHOW",
+      venue: "TIMIKA MAIN STAGE",
+      details: "Dokumentasi sorotan panggung utama dan penampilan komika.",
       flyerUrl: null,
+      imageUrl: null,
+      url: null,
       isCustom: false,
     },
     {
-      id: "neon-night",
-      title: "TIMIKA STANDUP NIGHT",
-      date: "SAT, OCT 14 - 9 PM",
-      venue: "NEON CAFE",
-      details: "SP2 • HOST: TIKA 'NO FILTER'",
+      id: "activity-doc-2",
+      title: "CROWD REACTIONS & LAUGHTER",
+      badge: "AUDIENCE",
+      date: "AUDIENCE",
+      venue: "CROWD & SEATING",
+      details: "Dokumentasi antusiasme dan tawa penonton.",
       flyerUrl: null,
+      imageUrl: null,
+      url: null,
+      isCustom: false,
+    },
+    {
+      id: "activity-doc-3",
+      title: "BACKSTAGE GREEN ROOM VIBES",
+      badge: "BEHIND THE SCENE",
+      date: "BEHIND THE SCENE",
+      venue: "GREEN ROOM",
+      details: "Dokumentasi suasana balik layar dan persiapan sebelum panggung.",
+      flyerUrl: null,
+      imageUrl: null,
+      url: null,
       isCustom: false,
     },
   ],
@@ -151,9 +180,9 @@ export async function getSiteConfig(): Promise<SiteAssetsConfig> {
     });
     if (res.ok) {
       const data = (await res.json()) as Partial<SiteAssetsConfig>;
-      if (data && data.useDynamicAssets) {
+      if (data) {
         return {
-          useDynamicAssets: true,
+          useDynamicAssets: Boolean(data.useDynamicAssets),
           hero: { ...defaultSiteConfig.hero, ...(data.hero || {}) },
           comedians:
             data.comedians && data.comedians.length > 0
@@ -176,3 +205,46 @@ export async function getSiteConfig(): Promise<SiteAssetsConfig> {
 
   return defaultSiteConfig;
 }
+
+export interface WebPartnerItem {
+  id: string;
+  name: string;
+  logoUrl: string;
+  websiteUrl?: string | null;
+  sortOrder: number;
+}
+
+export const defaultWebPartners: WebPartnerItem[] = [
+  {
+    id: "default-kopitiam88",
+    name: "KOPITIAM 88",
+    logoUrl:
+      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 80'><text x='50%' y='55%' text-anchor='middle' dominant-baseline='middle' font-family='monospace' font-weight='900' font-size='22' fill='%23000'>☕ KOPITIAM 88</text></svg>",
+    websiteUrl: "https://instagram.com",
+    sortOrder: 1,
+  },
+  {
+    id: "default-timikabeatz",
+    name: "TIMIKA BEATZ",
+    logoUrl:
+      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 80'><text x='50%' y='55%' text-anchor='middle' dominant-baseline='middle' font-family='monospace' font-weight='900' font-size='22' fill='%23000'>🎧 TIMIKA BEATZ</text></svg>",
+    websiteUrl: "https://instagram.com",
+    sortOrder: 2,
+  },
+  {
+    id: "default-underground",
+    name: "UNDERGROUND PRINT",
+    logoUrl:
+      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 80'><text x='50%' y='55%' text-anchor='middle' dominant-baseline='middle' font-family='monospace' font-weight='900' font-size='20' fill='%23000'>⚡ UNDERGROUND</text></svg>",
+    websiteUrl: "https://instagram.com",
+    sortOrder: 3,
+  },
+  {
+    id: "default-mimikacreative",
+    name: "MIMIKA CREATIVE",
+    logoUrl:
+      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 80'><text x='50%' y='55%' text-anchor='middle' dominant-baseline='middle' font-family='monospace' font-weight='900' font-size='20' fill='%23000'>🔥 MIMIKA CREATIVE</text></svg>",
+    websiteUrl: "https://instagram.com",
+    sortOrder: 4,
+  },
+];

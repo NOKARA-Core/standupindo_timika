@@ -3,16 +3,31 @@ import Link from "next/link";
 import { Users } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
 import { ComedianAssetConfig, defaultSiteConfig } from "../lib/site-config";
+import type { DBComedian } from "../lib/types";
 
 interface TalentGridSectionProps {
   comediansConfig?: ComedianAssetConfig[];
+  comedians?: DBComedian[];
   isDynamic?: boolean;
 }
 
 export function TalentGridSection({
   comediansConfig = defaultSiteConfig.comedians,
+  comedians,
   isDynamic = false,
 }: TalentGridSectionProps) {
+  // Use real DB comedians if provided and non-empty, otherwise fallback to comediansConfig
+  const displayTalents =
+    comedians && comedians.length > 0
+      ? comedians.slice(0, 3).map((c) => ({
+          id: c.id,
+          name: c.stageName,
+          badge: c.comedyStyle,
+          description: c.bio,
+          avatarUrl: c.avatarUrl,
+        }))
+      : comediansConfig.slice(0, 3);
+
   return (
     <section
       id="talents"
@@ -42,8 +57,8 @@ export function TalentGridSection({
 
         {/* Talent Grid with Staggered pop-in */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {comediansConfig.map((talent, index) => {
-            const hasCustomPhoto = Boolean(isDynamic && talent.avatarUrl);
+          {displayTalents.map((talent, index) => {
+            const hasCustomPhoto = Boolean(talent.avatarUrl?.trim());
 
             return (
               <AnimateReveal

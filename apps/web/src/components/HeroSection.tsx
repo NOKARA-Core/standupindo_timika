@@ -1,6 +1,3 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Play } from "lucide-react";
@@ -8,20 +5,16 @@ import { HeroAssetConfig, defaultSiteConfig } from "../lib/site-config";
 
 interface HeroSectionProps {
   heroConfig?: HeroAssetConfig;
+  dynamicData?: HeroAssetConfig | null;
   isDynamic?: boolean;
 }
 
 export function HeroSection({
   heroConfig = defaultSiteConfig.hero,
-  isDynamic = false,
 }: HeroSectionProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const hasCustomImage = Boolean(isDynamic && heroConfig?.url);
+  // Direct-first: if custom url exists in database, render image; otherwise fallback to default
+  const activeHeroUrl = heroConfig?.url?.trim() || null;
+  const hasCustomImage = Boolean(activeHeroUrl);
 
   return (
     <section className="w-full bg-[#FDFBF7] py-16 px-6 md:px-12 lg:px-20 border-b-2 border-black overflow-hidden">
@@ -60,17 +53,13 @@ export function HeroSection({
 
         {/* Right Column: Hero Visual Frame with Recoil Punch Entrance and Spring Settling */}
         <div
-          className={`w-full max-w-[548px] h-[380px] md:h-[480px] lg:h-[500px] aspect-[4/5] sm:aspect-square md:aspect-[4/5] mx-auto bg-[#FFF8F6] border-4 border-black rounded-none shadow-[8px_8px_0px_0px_#000000] hover:shadow-[12px_12px_0px_0px_#000000] relative overflow-hidden flex flex-col justify-between p-6 cursor-pointer select-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-            mounted
-              ? "animate-hero-entrance hover:rotate-0 hover:scale-[1.01]"
-              : "opacity-0"
-          }`}
+          className="w-full max-w-[548px] h-[380px] md:h-[480px] lg:h-[500px] aspect-[4/5] sm:aspect-square md:aspect-[4/5] mx-auto bg-[#FFF8F6] border-4 border-black rounded-none shadow-[8px_8px_0px_0px_#000000] hover:shadow-[12px_12px_0px_0px_#000000] relative overflow-hidden flex flex-col justify-between p-6 cursor-pointer select-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] animate-hero-entrance rotate-[1.8deg] hover:rotate-0 hover:scale-[1.01]"
         >
           {/* Dynamic Image Layer (when active) */}
-          {hasCustomImage && heroConfig?.url && (
+          {hasCustomImage && activeHeroUrl && (
             <div className="absolute inset-0 z-0">
               <Image
-                src={heroConfig.url}
+                src={activeHeroUrl}
                 alt="StandUp INDO Timika Live Stage"
                 fill
                 priority
@@ -99,28 +88,19 @@ export function HeroSection({
               <span className="font-['Anton',sans-serif] text-3xl md:text-4xl text-[#FF4500] uppercase block tracking-widest mt-1">
                 {heroConfig?.subtitle || "TIMIKA CHAPTER"}
               </span>
-              <p className="font-['Space_Mono',monospace] text-xs uppercase tracking-widest text-[#5C4037] mt-3 border-t-2 border-black pt-2">
-                {heroConfig?.badge || "SOLID • SPONTAN • SAKIT PERUT"}
-              </p>
             </div>
           )}
 
-          {/* Bottom Indicators */}
+          {/* Bottom Badge Info */}
           <div className="flex justify-between items-end z-10 relative">
             <span
               className={`font-['Space_Mono',monospace] text-xs font-bold ${
                 hasCustomImage ? "text-white" : "text-[#5C4037]"
               }`}
             >
-              STAGE VOL. 04
+              {heroConfig?.badge || "SOLID • SPONTAN • SAKIT PERUT"}
             </span>
-            <span
-              className={`font-['Space_Mono',monospace] text-xs font-bold underline decoration-2 ${
-                hasCustomImage ? "text-[#FF4500]" : "text-[#281812]"
-              }`}
-            >
-              LIVE RAW COMEDY
-            </span>
+            <div className="w-4 h-4 bg-[#FF4500] border border-black" />
           </div>
         </div>
       </div>

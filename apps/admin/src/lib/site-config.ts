@@ -17,15 +17,20 @@ export interface ComedianAssetConfig {
   isCustom: boolean;
 }
 
-export interface FlyerAssetConfig {
+export interface DocumentationAssetConfig {
   id: string;
   title: string;
-  date: string;
-  venue: string;
-  details: string;
-  flyerUrl: string | null;
+  badge?: string;
+  date?: string;
+  venue?: string;
+  details?: string;
+  flyerUrl?: string | null;
+  imageUrl?: string | null;
+  url?: string | null;
   isCustom: boolean;
 }
+
+export type FlyerAssetConfig = DocumentationAssetConfig;
 
 export interface MerchAssetConfig {
   id: string;
@@ -39,9 +44,11 @@ export interface MerchAssetConfig {
 
 export interface SiteAssetsConfig {
   useDynamicAssets: boolean;
+  useDynamicPartners?: boolean;
   hero: HeroAssetConfig;
   comedians: ComedianAssetConfig[];
-  flyers: FlyerAssetConfig[];
+  flyers: DocumentationAssetConfig[];
+  documentation?: DocumentationAssetConfig[];
   merch: MerchAssetConfig[];
 }
 
@@ -87,21 +94,39 @@ export const defaultSiteConfig: SiteAssetsConfig = {
   ],
   flyers: [
     {
-      id: "grind-42",
-      title: "THE GRIND (OPEN MIC)",
-      date: "FRI, OCT 13 - 8 PM",
-      venue: "THE BUNKER",
-      details: "JL. YOS SUDARSO • HOST: RIAN 'THE HAMMER'",
+      id: "activity-doc-1",
+      title: "MAIN EVENT LIVE STAGE",
+      badge: "SPECIAL SHOW",
+      date: "SPECIAL SHOW",
+      venue: "TIMIKA MAIN STAGE",
+      details: "Dokumentasi sorotan panggung utama dan penampilan komika.",
       flyerUrl: null,
+      imageUrl: null,
+      url: null,
       isCustom: false,
     },
     {
-      id: "neon-night",
-      title: "TIMIKA STANDUP NIGHT",
-      date: "SAT, OCT 14 - 9 PM",
-      venue: "NEON CAFE",
-      details: "SP2 • HOST: TIKA 'NO FILTER'",
+      id: "activity-doc-2",
+      title: "CROWD REACTIONS & LAUGHTER",
+      badge: "AUDIENCE",
+      date: "AUDIENCE",
+      venue: "CROWD & SEATING",
+      details: "Dokumentasi antusiasme dan tawa penonton.",
       flyerUrl: null,
+      imageUrl: null,
+      url: null,
+      isCustom: false,
+    },
+    {
+      id: "activity-doc-3",
+      title: "BACKSTAGE GREEN ROOM VIBES",
+      badge: "BEHIND THE SCENE",
+      date: "BEHIND THE SCENE",
+      venue: "GREEN ROOM",
+      details: "Dokumentasi suasana balik layar dan persiapan sebelum panggung.",
+      flyerUrl: null,
+      imageUrl: null,
+      url: null,
       isCustom: false,
     },
   ],
