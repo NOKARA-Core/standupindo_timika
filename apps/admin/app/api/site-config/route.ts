@@ -24,6 +24,13 @@ export async function POST(request: Request) {
     };
 
     const saved = await saveSiteConfig(updated);
+    try {
+      const { revalidatePath } = await import("next/cache");
+      revalidatePath("/media");
+      revalidatePath("/");
+    } catch {
+      // Ignore cache revalidation errors
+    }
     return NextResponse.json({ success: true, config: saved });
   } catch (error) {
     console.error("API error updating site config:", error);

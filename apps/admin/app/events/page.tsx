@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Calendar,
   Plus,
@@ -10,19 +10,22 @@ import {
   Trash2,
   X,
   Upload,
+  RefreshCw,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
-import {
-  initialEvents,
-  EventItem,
-  uploadAsset,
-} from "../../src/lib/mock-data";
+import { EventItem } from "../../src/lib/mock-data";
 
 export default function EventsAdminPage() {
-  const [events, setEvents] = useState<EventItem[]>(initialEvents);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
+  const [deleteEventId, setDeleteEventId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
 
   // Form State
   const [title, setTitle] = useState("");
@@ -35,7 +38,27 @@ export default function EventsAdminPage() {
   const [price, setPrice] = useState("");
   const [taptapUrl, setTaptapUrl] = useState("");
   const [status, setStatus] = useState<"PUBLISHED" | "DRAFT" | "TAPTAP LIVE">("PUBLISHED");
-  const [flyerName, setFlyerName] = useState<string>("");
+  const [flyerUrl, setFlyerUrl] = useState<string>("");
+
+  // Load events from Neon DB API
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/events");
+      if (res.ok) {
+        const data = await res.json();
+        setEvents(data);
+      }
+    } catch (err) {
+      console.error("Failed to load events:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
 
   const filteredEvents = events.filter((evt) => {
     const matchStatus = filterStatus === "ALL" || evt.status === filterStatus;
@@ -50,7 +73,7 @@ export default function EventsAdminPage() {
     setEditingEvent(null);
     setTitle("");
     setType("OPEN MIC");
-    setDate("2026-10-25");
+    setDate(new Date().toISOString().split("T")[0] || "2026-10-01");
     setTime("20:00 WIT");
     setVenue("SKY COFFEE25");
     setAddress("Jl. Bhayangkara, Koperapoka, Timika");
@@ -58,7 +81,7 @@ export default function EventsAdminPage() {
     setPrice("FREE ENTRY");
     setTaptapUrl("");
     setStatus("PUBLISHED");
-    setFlyerName("");
+    setFlyerUrl("");
     setIsModalOpen(true);
   };
 
@@ -72,38 +95,18 @@ export default function EventsAdminPage() {
     setAddress(evt.address);
     setHost(evt.host);
     setPrice(evt.price);
-    setTaptapUrl(evt.taptapUrl);
+    setTaptapUrl(evt.taptapUrl || "");
     setStatus(evt.status);
-    setFlyerName(evt.flyerUrl || "");
+    setFlyerUrl(evt.flyerUrl || "");
     setIsModalOpen(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingEvent) {
-      setEvents((prev) =>
-        prev.map((item) =>
-          item.id === editingEvent.id
-            ? {
-                ...item,
-                title,
-                type,
-                date,
-                time,
-                venue,
-                address,
-                host,
-                price,
-                taptapUrl,
-                status,
-                flyerUrl: flyerName,
-              }
-            : item
-        )
-      );
-    } else {
-      const newEvent: EventItem = {
-        id: `evt-${Date.now()}`,
+    setIsSubmitting(true);
+    try {
+      const payload: Partial<EventItem> = {
+        id: editingEvent ? editingEvent.id : `evt-${Date.now()}`,
         title,
         type,
         date,
@@ -114,26 +117,102 @@ export default function EventsAdminPage() {
         price,
         taptapUrl,
         status,
-        flyerUrl: flyerName,
-        capacity: type === "OPEN MIC" ? 50 : 200,
-        registeredCount: 0,
+        flyerUrl: flyerUrl || undefined,
+        capacity: type === "OPEN MIC" ? 60 : 250,
       };
-      setEvents((prev) => [newEvent, ...prev]);
+
+      const res = await fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        await fetchEvents();
+        setIsModalOpen(false);
+      } else {
+        const data = await res.json();
+        alert(data.error || "Gagal menyimpan event");
+      }
+    } catch (err) {
+      console.error("Save event error:", err);
+      alert("Terjadi kesalahan jaringan.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Hapus acara ini dari kalender?")) {
-      setEvents((prev) => prev.filter((item) => item.id !== id));
+  const handleToggleStatus = async (evt: EventItem) => {
+    const nextStatusMap: Record<string, "PUBLISHED" | "TAPTAP LIVE" | "DRAFT"> = {
+      PUBLISHED: "TAPTAP LIVE",
+      "TAPTAP LIVE": "DRAFT",
+      DRAFT: "PUBLISHED",
+    };
+    const nextStatus = nextStatusMap[evt.status] || "PUBLISHED";
+
+    // Optimistic update
+    setEvents((prev) =>
+      prev.map((item) => (item.id === evt.id ? { ...item, status: nextStatus } : item))
+    );
+
+    try {
+      const res = await fetch("/api/events", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: evt.id, status: nextStatus }),
+      });
+      if (!res.ok) {
+        await fetchEvents();
+      }
+    } catch {
+      await fetchEvents();
     }
   };
 
-  const handleSimulateUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const confirmDelete = async () => {
+    if (!deleteEventId) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/events?id=${deleteEventId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setEvents((prev) => prev.filter((item) => item.id !== deleteEventId));
+        setDeleteEventId(null);
+      }
+    } catch (err) {
+      console.error("Delete event error:", err);
+      alert("Gagal menghapus event");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUploadFlyer = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const res = await uploadAsset(file);
-      setFlyerName(res.path);
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "stup-timika/flyers");
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setFlyerUrl(data.url);
+      } else {
+        alert("Gagal upload flyer");
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -142,19 +221,34 @@ export default function EventsAdminPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Events Management</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-gray-900">Events Management</h2>
+            <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded">
+              NEON DB CONNECTED
+            </span>
+          </div>
           <p className="text-xs text-gray-500 mt-1">
-            Kelola jadwal Open Mic, pertunjukan spesial, dan integrasi tautan TapTap
+            Kelola jadwal Open Mic, pertunjukan spesial, dan integrasi tiket TapTap langsung di Neon.tech
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold tracking-wider transition-colors cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Tambah Show Baru</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={fetchEvents}
+            className="p-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 transition-colors shadow-xs"
+            title="Refresh Data dari DB"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold tracking-wider transition-colors cursor-pointer shadow-xs"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ CREATE EVENT</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -190,7 +284,7 @@ export default function EventsAdminPage() {
         </div>
       </div>
 
-      {/* Events Table (DESIGN-SYSTEM: ONLY horizontal row dividers) */}
+      {/* Events Table */}
       <div className="bg-white border border-gray-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -209,7 +303,7 @@ export default function EventsAdminPage() {
                   TapTap Link
                 </th>
                 <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
-                  Status
+                  Status (Click to Toggle)
                 </th>
                 <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold text-right">
                   Actions
@@ -217,7 +311,14 @@ export default function EventsAdminPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredEvents.length === 0 ? (
+              {loading && events.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-xs text-gray-500">
+                    <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-gray-400" />
+                    <span>Memuat data acara dari Neon PostgreSQL...</span>
+                  </td>
+                </tr>
+              ) : filteredEvents.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-xs text-gray-500">
                     Tidak ada jadwal acara yang sesuai filter.
@@ -267,8 +368,11 @@ export default function EventsAdminPage() {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <span
-                        className={`inline-block px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider ${
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(evt)}
+                        title="Klik untuk ubah status secara instan"
+                        className={`inline-block px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider cursor-pointer hover:opacity-80 transition-opacity ${
                           evt.status === "TAPTAP LIVE"
                             ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                             : evt.status === "PUBLISHED"
@@ -276,26 +380,26 @@ export default function EventsAdminPage() {
                             : "bg-gray-100 text-gray-600 border border-gray-200"
                         }`}
                       >
-                        {evt.status}
-                      </span>
+                        {evt.status} ↻
+                      </button>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           type="button"
                           onClick={() => openEditModal(evt)}
-                          className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-                          title="Edit Show"
+                          className="px-2.5 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 transition-colors flex items-center gap-1 cursor-pointer"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDelete(evt.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                          title="Hapus Show"
+                          onClick={() => setDeleteEventId(evt.id)}
+                          className="px-2.5 py-1 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 transition-colors flex items-center gap-1 cursor-pointer"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
                         </button>
                       </div>
                     </td>
@@ -313,54 +417,60 @@ export default function EventsAdminPage() {
           <div className="bg-white border border-gray-200 max-w-lg w-full p-6 shadow-xl space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-gray-200">
               <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-                {editingEvent ? "Edit Show" : "Tambah Show Baru"}
+                {editingEvent ? "Edit Show" : "+ CREATE NEW EVENT"}
               </h3>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-900"
+                className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-4 text-xs">
+            <form onSubmit={handleSave} className="space-y-4">
               <div>
-                <label className="block font-semibold text-gray-700 mb-1">
-                  Judul Acara
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                  Nama Acara / Judul Show
                 </label>
                 <input
                   type="text"
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Contoh: THE GRIND VOL. 43"
-                  className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 focus:outline-none focus:border-gray-900"
+                  placeholder="Misal: THE GRIND VOL. 43"
+                  className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">
-                    Tipe Show
+                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                    Tipe Acara
                   </label>
                   <select
                     value={type}
-                    onChange={(e) => setType(e.target.value as any)}
-                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 focus:outline-none focus:border-gray-900"
+                    onChange={(e) =>
+                      setType(e.target.value as "OPEN MIC" | "SPECIAL SHOW")
+                    }
+                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
                   >
                     <option value="OPEN MIC">OPEN MIC</option>
                     <option value="SPECIAL SHOW">SPECIAL SHOW</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">
-                    Status Tayang
+                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                    Status
                   </label>
                   <select
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 focus:outline-none focus:border-gray-900"
+                    onChange={(e) =>
+                      setStatus(
+                        e.target.value as "PUBLISHED" | "DRAFT" | "TAPTAP LIVE"
+                      )
+                    }
+                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
                   >
                     <option value="PUBLISHED">PUBLISHED</option>
                     <option value="TAPTAP LIVE">TAPTAP LIVE</option>
@@ -371,7 +481,7 @@ export default function EventsAdminPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">
+                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
                     Tanggal
                   </label>
                   <input
@@ -379,12 +489,12 @@ export default function EventsAdminPage() {
                     required
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 focus:outline-none focus:border-gray-900"
+                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">
-                    Jam Acara
+                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                    Waktu / Jam
                   </label>
                   <input
                     type="text"
@@ -392,14 +502,14 @@ export default function EventsAdminPage() {
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
                     placeholder="20:00 WIT"
-                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 focus:outline-none focus:border-gray-900"
+                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">
+                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
                     Nama Venue
                   </label>
                   <input
@@ -408,11 +518,11 @@ export default function EventsAdminPage() {
                     value={venue}
                     onChange={(e) => setVenue(e.target.value)}
                     placeholder="SKY COFFEE25"
-                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 focus:outline-none focus:border-gray-900"
+                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">
+                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
                     Host / MC
                   </label>
                   <input
@@ -421,14 +531,14 @@ export default function EventsAdminPage() {
                     value={host}
                     onChange={(e) => setHost(e.target.value)}
                     placeholder="RIAN 'THE HAMMER'"
-                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 focus:outline-none focus:border-gray-900"
+                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-semibold text-gray-700 mb-1">
-                  Alamat Venue
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                  Alamat Lengkap Venue
                 </label>
                 <input
                   type="text"
@@ -436,74 +546,118 @@ export default function EventsAdminPage() {
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="Jl. Bhayangkara, Koperapoka, Timika"
-                  className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 focus:outline-none focus:border-gray-900"
+                  className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">
-                    Harga / Tiket
+                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                    Harga Tiket
                   </label>
                   <input
                     type="text"
+                    required
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
-                    placeholder="FREE ENTRY / RP 75.000"
-                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 focus:outline-none focus:border-gray-900"
+                    placeholder="FREE ENTRY / Rp 50.000"
+                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">
-                    External Link TapTap
+                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                    Tautan TapTap / RSVP
                   </label>
                   <input
                     type="url"
                     value={taptapUrl}
                     onChange={(e) => setTaptapUrl(e.target.value)}
                     placeholder="https://taptap.id/e/..."
-                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 focus:outline-none focus:border-gray-900"
+                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
                   />
                 </div>
               </div>
 
-              {/* Upload Flyer Mock */}
+              {/* Upload Flyer */}
               <div>
-                <label className="block font-semibold text-gray-700 mb-1">
-                  Flyer Event (Asset Upload Mock)
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                  Flyer Event Poster
                 </label>
-                <div className="border border-dashed border-gray-300 p-3 bg-gray-50 flex items-center justify-between">
-                  <span className="text-gray-500 truncate max-w-xs">
-                    {flyerName || "Belum ada file dipilih"}
-                  </span>
-                  <label className="px-2.5 py-1 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 font-semibold cursor-pointer flex items-center gap-1">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="text"
+                    value={flyerUrl}
+                    onChange={(e) => setFlyerUrl(e.target.value)}
+                    placeholder="https://res.cloudinary.com/..."
+                    className="flex-1 border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                  />
+                  <label className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold border border-gray-200 flex items-center gap-1.5 cursor-pointer">
                     <Upload className="w-3.5 h-3.5" />
-                    <span>Upload</span>
+                    <span>{isUploading ? "Uploading..." : "Upload"}</span>
                     <input
                       type="file"
+                      accept="image/*"
+                      onChange={handleUploadFlyer}
                       className="hidden"
-                      onChange={handleSimulateUpload}
                     />
                   </label>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-200">
+              <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold cursor-pointer"
+                  className="px-4 py-2 border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50 transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold cursor-pointer"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-gray-900 text-white text-xs font-semibold hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50"
                 >
-                  Simpan Acara
+                  {isSubmitting ? "Menyimpan ke Neon DB..." : "Simpan Acara"}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteEventId && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-red-200 max-w-sm w-full p-6 shadow-xl space-y-4">
+            <div className="flex items-center gap-3 text-red-600">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">Konfirmasi Hapus</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Tindakan ini permanen dan akan menghapus record dari Neon DB.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteEventId(null)}
+                className="px-3 py-1.5 border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={confirmDelete}
+                className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+              >
+                {isSubmitting ? "Menghapus..." : "Hapus Sekarang"}
+              </button>
+            </div>
           </div>
         </div>
       )}

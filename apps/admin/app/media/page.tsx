@@ -457,6 +457,40 @@ export default function MediaAssetsAdminPage() {
             </button>
           </div>
         </div>
+
+        {/* Prominent Save Configuration Bar */}
+        <div className="mt-6 pt-5 border-t-2 border-black flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <p className="text-xs font-semibold text-gray-800">
+              Konfigurasi tersimpan langsung di Neon PostgreSQL. Klik tombol simpan untuk menyinkronkan seluruh perubahan ke web publik.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => persistConfig(siteConfig)}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-mono text-xs font-bold uppercase tracking-wider border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all cursor-pointer"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>SAVING TO NEON DB...</span>
+              </>
+            ) : saveSuccess ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-200" />
+                <span>SAVED SUCCESSFULLY!</span>
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="w-4 h-4" />
+                <span>SAVE CONFIGURATION</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* 3. ASSET SPECIFICATIONS & SCALE GUIDE (Card Information) */}

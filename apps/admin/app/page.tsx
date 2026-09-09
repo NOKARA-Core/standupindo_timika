@@ -1,6 +1,3 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
 import {
   Calendar,
@@ -8,50 +5,92 @@ import {
   Mic2,
   TrendingUp,
   Clock,
-  CheckCircle2,
-  XCircle,
   ArrowRight,
   Sparkles,
 } from "lucide-react";
-import {
-  initialEvents,
-  initialComedians,
-  initialRegistrations,
-  OpenMicRegistration,
-} from "../src/lib/mock-data";
+import { getSql } from "../src/lib/db";
 import { MonthlyPerformanceChart } from "../src/components/analytics/MonthlyPerformanceChart";
 import { ComedyStyleChart } from "../src/components/analytics/ComedyStyleChart";
 import { ShowCapacityMetric } from "../src/components/analytics/ShowCapacityMetric";
+import { RegistrationsList } from "../src/components/RegistrationsList";
 
-export default function DashboardPage() {
-  const [registrations, setRegistrations] =
-    useState<OpenMicRegistration[]>(initialRegistrations);
+export const dynamic = "force-dynamic";
 
-  const activeEventsCount = initialEvents.filter(
-    (e) => e.status !== "DRAFT"
-  ).length;
-  const activeComediansCount = initialComedians.filter(
-    (c) => c.isActive
-  ).length;
-  const pendingRegistrationsCount = registrations.filter(
-    (r) => r.status === "PENDING"
-  ).length;
+interface EventRow {
+  id: string;
+  title: string;
+  type: string;
+  date: string;
+  time: string;
+  venue: string;
+  host: string;
+  status: string;
+}
 
-  const handleRegistrationAction = (
-    id: string,
-    action: "APPROVED" | "REJECTED"
-  ) => {
-    setRegistrations((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, status: action } : item
-      )
-    );
-  };
+interface RegistrationRow {
+  id: string;
+  event_id: string;
+  event_title: string;
+  comedian_name: string;
+  phone: string;
+  notes: string;
+  status: string;
+  submitted_at: string;
+}
 
+async function getDashboardData() {
+  try {
+    const sql = getSql();
+    const [
+      activeEventsCountRes,
+      activeComediansCountRes,
+      totalComediansRes,
+      pendingRegCountRes,
+      recentEvents,
+      registrations,
+    ] = await Promise.all([
+      sql`SELECT count(*)::int as count FROM events WHERE status != 'DRAFT'`,
+      sql`SELECT count(*)::int as count FROM comedians WHERE is_active = true`,
+      sql`SELECT count(*)::int as count FROM comedians`,
+      sql`SELECT count(*)::int as count FROM open_mic_registrations WHERE status = 'PENDING'`,
+      sql`SELECT id, title, type, date, time, venue, host, status FROM events ORDER BY date ASC, time ASC LIMIT 5`,
+      sql`SELECT id, event_id, event_title, comedian_name, phone, notes, status, submitted_at FROM open_mic_registrations ORDER BY created_at DESC LIMIT 6`,
+    ]);
+
+    return {
+      activeEventsCount: activeEventsCountRes[0]?.count || 0,
+      activeComediansCount: activeComediansCountRes[0]?.count || 0,
+      totalComediansCount: totalComediansRes[0]?.count || 0,
+      pendingRegistrationsCount: pendingRegCountRes[0]?.count || 0,
+      events: recentEvents as unknown as EventRow[],
+      registrations: registrations as unknown as RegistrationRow[],
+    };
+  } catch (error) {
+    console.error("Dashboard DB query error:", error);
+    return {
+      activeEventsCount: 0,
+      activeComediansCount: 0,
+      totalComediansCount: 0,
+      pendingRegistrationsCount: 0,
+      events: [],
+      registrations: [],
+    };
+  }
+}
+
+export default async function DashboardPage() {
+  const {
+    activeEventsCount,
+    activeComediansCount,
+    totalComediansCount,
+    pendingRegistrationsCount,
+    events,
+    registrations,
+  } = await getDashboardData();
 
   return (
     <div className="space-y-8">
-      {/* 1. Polished Metric Cards with Soft Pastel Badges & Smooth Hover */}
+      {/* 1. Polished Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Card 1: Active Events */}
         <div className="bg-white border border-gray-200 p-6 shadow-xs hover:shadow-sm hover:border-gray-300 transition-all duration-150 flex flex-col justify-between">
@@ -69,7 +108,7 @@ export default function DashboardPage() {
             </div>
             <div className="text-xs text-emerald-600 font-medium mt-1.5 flex items-center gap-1">
               <TrendingUp className="w-3.5 h-3.5" />
-              <span>2 shows coming this weekend</span>
+              <span>Real-time dari Neon DB</span>
             </div>
           </div>
         </div>
@@ -89,7 +128,7 @@ export default function DashboardPage() {
               {activeComediansCount}
             </div>
             <div className="text-xs text-gray-500 mt-1.5">
-              {initialComedians.length} total komika terdaftar
+              {totalComediansCount} total komika terdaftar
             </div>
           </div>
         </div>
@@ -130,26 +169,23 @@ export default function DashboardPage() {
             </div>
             <div className="text-xs text-emerald-600 font-medium mt-1.5 flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>+35% lonjakan penonton</span>
+              <span>Kapasitas venue Timika</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 2. Visual Analytics Section: Composed Performance Chart & Secondary Metrics */}
+      {/* 2. Visual Analytics Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main 2-Col: Monthly Performance ComposedChart */}
         <div className="lg:col-span-2">
           <MonthlyPerformanceChart />
         </div>
-
-        {/* 1-Col: Comedy Style Donut Breakdown */}
         <div className="lg:col-span-1">
           <ComedyStyleChart />
         </div>
       </div>
 
-      {/* Show Capacity & Ticketing Conversion Metric Banner/Card */}
+      {/* Show Capacity Metric Card */}
       <div>
         <ShowCapacityMetric />
       </div>
@@ -164,7 +200,7 @@ export default function DashboardPage() {
                 Upcoming Shows Schedule
               </h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                Jadwal aktif yang terdaftar di kalender acara komunitas
+                Data jadwal aktif langsung dari database Neon
               </p>
             </div>
             <Link
@@ -192,123 +228,56 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {initialEvents.map((evt) => (
-                  <tr
-                    key={evt.id}
-                    className="hover:bg-gray-50/75 transition-colors duration-150"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-sm text-gray-900">
-                        {evt.title}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        <span className="font-medium text-gray-700">{evt.type}</span> • Host: {evt.host}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-xs font-semibold text-gray-900">
-                        {evt.date} • {evt.time}
-                      </div>
-                      <div className="text-xs text-gray-500">{evt.venue}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-block px-2.5 py-1 text-[11px] font-semibold tracking-wide rounded-full ${
-                          evt.status === "TAPTAP LIVE"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : evt.status === "PUBLISHED"
-                            ? "bg-blue-50 text-blue-700 border border-blue-200"
-                            : "bg-gray-100 text-gray-600 border border-gray-200"
-                        }`}
-                      >
-                        {evt.status}
-                      </span>
+                {events.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-8 text-center text-xs text-gray-500">
+                      Belum ada jadwal acara.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  events.map((evt) => (
+                    <tr
+                      key={evt.id}
+                      className="hover:bg-gray-50/75 transition-colors duration-150"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="font-bold text-sm text-gray-900">
+                          {evt.title}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          <span className="font-medium text-gray-700">{evt.type}</span> • Host: {evt.host}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-xs font-semibold text-gray-900">
+                          {evt.date} • {evt.time}
+                        </div>
+                        <div className="text-xs text-gray-500">{evt.venue}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-block px-2.5 py-1 text-[11px] font-semibold tracking-wide rounded-full ${
+                            evt.status === "TAPTAP LIVE"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : evt.status === "PUBLISHED"
+                              ? "bg-blue-50 text-blue-700 border border-blue-200"
+                              : "bg-gray-100 text-gray-600 border border-gray-200"
+                          }`}
+                        >
+                          {evt.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Pending Lineup Approvals List */}
+        {/* Interactive Pending Lineup Approvals Component */}
         <div className="lg:col-span-4 bg-white border border-gray-200 shadow-xs">
-          <div className="px-6 py-4.5 border-b border-gray-100">
-            <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-              Pending Lineup Approvals
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Registrasi komika menunggu kurasi materi
-            </p>
-          </div>
-
-          <div className="p-4 divide-y divide-gray-100">
-            {registrations.length === 0 ? (
-              <div className="text-center py-8 text-xs text-gray-500">
-                Tidak ada pendaftaran pending.
-              </div>
-            ) : (
-              registrations.map((reg) => (
-                <div key={reg.id} className="py-4 first:pt-1 last:pb-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-sm font-bold text-gray-900">
-                        {reg.comedianName}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        {reg.eventTitle}
-                      </div>
-                    </div>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                        reg.status === "PENDING"
-                          ? "bg-amber-50 text-amber-700 border border-amber-200"
-                          : reg.status === "APPROVED"
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-red-50 text-red-700 border border-red-200"
-                      }`}
-                    >
-                      {reg.status}
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-gray-600 mt-2 bg-gray-50 p-2.5 border border-gray-100 leading-relaxed">
-                    &quot;{reg.notes}&quot;
-                  </p>
-
-                  <div className="flex items-center justify-between mt-3 pt-1">
-                    <span className="text-[10px] text-gray-400">
-                      {reg.submittedAt}
-                    </span>
-                    {reg.status === "PENDING" && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleRegistrationAction(reg.id, "APPROVED")
-                          }
-                          className="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Approve</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleRegistrationAction(reg.id, "REJECTED")
-                          }
-                          className="px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          <span>Reject</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+          <RegistrationsList initialRegistrations={registrations} />
         </div>
       </div>
     </div>
