@@ -59,11 +59,6 @@ export default function MediaAssetsAdminPage() {
   const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
   const [slotFeedback, setSlotFeedback] = useState<Record<string, string>>({});
 
-  // Dynamic/Static Switch Confirmation Modal
-  const [pendingToggle, setPendingToggle] = useState<boolean | null>(null);
-  const [toggleModalOpen, setToggleModalOpen] = useState(false);
-  const [toggling, setToggling] = useState(false);
-
   // Media Picker Modal (to pick from already uploaded assets)
   const [pickerSlotId, setPickerSlotId] = useState<string | null>(null);
   const [pickerTypeFilter, setPickerTypeFilter] = useState<string>("ALL");
@@ -387,16 +382,6 @@ export default function MediaAssetsAdminPage() {
     }
   };
 
-  const handleToggleDynamicPartners = async () => {
-    const currentVal = siteConfig.useDynamicPartners !== false;
-    const nextVal = !currentVal;
-    const updated: SiteAssetsConfig = {
-      ...siteConfig,
-      useDynamicPartners: nextVal,
-    };
-    await persistConfig(updated);
-  };
-
   // Apply staged file (Uploads if local, or directly saves if chosen from storage)
   const handleApplySlot = async (
     slotId: string,
@@ -449,31 +434,6 @@ export default function MediaAssetsAdminPage() {
     const saved = await persistConfig(updated);
     if (saved) {
       showSlotFeedback(slotId, "Slot di-reset ke aset bawaan.");
-    }
-  };
-
-  // Toggle dynamic vs static mode with confirmation
-  const handleRequestToggleDynamic = () => {
-    setPendingToggle(!siteConfig.useDynamicAssets);
-    setToggleModalOpen(true);
-  };
-
-  const handleConfirmToggle = async () => {
-    if (pendingToggle === null) return;
-    setToggling(true);
-    try {
-      const targetVal = pendingToggle;
-      const updated: SiteAssetsConfig = {
-        ...siteConfig,
-        useDynamicAssets: targetVal,
-      };
-      await persistConfig(updated);
-      setToggleModalOpen(false);
-      setPendingToggle(null);
-    } catch (err) {
-      alert("Gagal mengubah mode tampilan.");
-    } finally {
-      setToggling(false);
     }
   };
 
@@ -562,104 +522,19 @@ export default function MediaAssetsAdminPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           <a
-            href={`${webUrl}/?view_mode=static`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-yellow-300 hover:bg-yellow-400 text-black text-xs font-bold border-2 border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
-            title="Cek tampilan mode statis bawaan tanpa merubah database"
-          >
-            <Eye className="w-3.5 h-3.5 text-black" />
-            <span>Preview Mode Statis</span>
-          </a>
-
-          <a
-            href={`${webUrl}/?view_mode=dynamic`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#FF4500] hover:bg-[#E03E00] text-white text-xs font-bold border-2 border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
-            title="Cek tampilan mode dinamis upload tanpa merubah database"
-          >
-            <Eye className="w-3.5 h-3.5 text-white" />
-            <span>Preview Mode Dinamis</span>
-          </a>
-
-          <a
             href={webUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 text-gray-800 text-xs font-bold border-2 border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-gray-50 text-gray-800 text-xs font-bold border-2 border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
             title="Buka tampilan landing page publik saat ini"
           >
-            <span>Web Publik</span>
+            <span>Buka Web Publik</span>
             <ExternalLink className="w-3.5 h-3.5 text-gray-600" />
           </a>
         </div>
       </div>
 
-      {/* 2. Global Sync Toggle Banner */}
-      <div
-        className={`border-4 border-black p-6 transition-all shadow-[6px_6px_0px_0px_#000000] ${
-          siteConfig.useDynamicAssets
-            ? "bg-[#FFF8F6] border-black"
-            : "bg-white border-black"
-        }`}
-      >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div
-              className={`w-12 h-12 flex items-center justify-center border-2 border-black shrink-0 ${
-                siteConfig.useDynamicAssets
-                  ? "bg-[#FF4500] text-white"
-                  : "bg-gray-100 text-gray-500"
-              }`}
-            >
-              <Sliders className="w-6 h-6" />
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-base font-bold text-gray-900 tracking-tight">
-                  Override Landing Page with Uploaded Assets
-                </h2>
-                <span
-                  className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 border-2 border-black ${
-                    siteConfig.useDynamicAssets
-                      ? "bg-emerald-400 text-black shadow-[2px_2px_0px_0px_#000]"
-                      : "bg-gray-200 text-gray-700"
-                  }`}
-                >
-                  {siteConfig.useDynamicAssets
-                    ? "DYNAMIC MODE ACTIVE"
-                    : "STATIC FALLBACK ONLY"}
-                </span>
-              </div>
-              <p className="text-xs text-gray-600 mt-1 max-w-2xl leading-relaxed">
-                {siteConfig.useDynamicAssets
-                  ? "Mode Dinamis Aktif: Aset yang telah di-apply menimpa visual landing page publik. Jika ada slot kosong, otomatis memakai fallback statis."
-                  : "Mode Statis Aktif: Landing page publik mengunci tampilan pada aset desain bawaan asli. Upload tidak memengaruhi publik sebelum switch diaktifkan."}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={handleRequestToggleDynamic}
-              className={`px-5 py-3 border-2 border-black font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-[4px_4px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
-                siteConfig.useDynamicAssets
-                  ? "bg-black text-white hover:bg-[#FF4500]"
-                  : "bg-[#FF4500] text-white hover:bg-[#E03E00]"
-              }`}
-            >
-              {siteConfig.useDynamicAssets
-                ? "NONAKTIFKAN (KE STATIS)"
-                : "AKTIFKAN MODE DINAMIS"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Asset Specifications Guide Card */}
+      {/* 2. Asset Specifications Guide Card */}
       <div className="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#000000]">
         <div className="flex items-center gap-2 pb-3 border-b-2 border-black">
           <Info className="w-5 h-5 text-[#FF4500]" />
@@ -1461,25 +1336,6 @@ export default function MediaAssetsAdminPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {/* Dynamic Partners Toggle */}
-            <button
-              type="button"
-              onClick={handleToggleDynamicPartners}
-              className={`px-3.5 py-1.5 border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer flex items-center gap-1.5 transition-colors active:translate-y-0.5 ${
-                siteConfig.useDynamicPartners !== false
-                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-              title="Toggle tampilan dinamis partner vs statis bawaan di web"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>
-                {siteConfig.useDynamicPartners !== false
-                  ? "Dynamic Partners: ON"
-                  : "Dynamic Partners: OFF (Static Fallback)"}
-              </span>
-            </button>
-
             {/* Add Partner Button */}
             <button
               type="button"
@@ -1711,75 +1567,6 @@ export default function MediaAssetsAdminPage() {
           )}
         </div>
       </div>
-
-      {/* Confirmation Modal for Landing Page Mode Toggle */}
-      {toggleModalOpen &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            onClick={() => !toggling && setToggleModalOpen(false)}
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white border-4 border-black p-6 md:p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#000000] relative animate-in zoom-in-95 duration-150"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 bg-[#FFE9E3] border-2 border-black flex items-center justify-center text-[#FF4500] shrink-0 shadow-[2px_2px_0px_0px_#000]">
-                  <AlertTriangle className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-['Space_Mono',monospace] font-bold text-base md:text-lg text-gray-900 uppercase">
-                    Ubah Mode Tampilan Landing Page?
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Konfigurasi Tampilan Publik Web
-                  </p>
-                </div>
-              </div>
-
-              <p className="text-xs md:text-sm text-gray-700 leading-relaxed mb-6 font-medium">
-                Beralih ke mode{" "}
-                <strong className="text-black font-bold">
-                  {pendingToggle ? "Dinamis (Aset Cloud)" : "Statis (Aset Bawaan Asli)"}
-                </strong>{" "}
-                akan mengubah sumber aset yang dilihat oleh seluruh pengunjung web publik.
-              </p>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t-2 border-gray-100">
-                <button
-                  type="button"
-                  disabled={toggling}
-                  onClick={() => {
-                    setToggleModalOpen(false);
-                    setPendingToggle(null);
-                  }}
-                  className="px-4 py-2 border-2 border-black font-bold text-xs uppercase tracking-wider hover:bg-gray-100 cursor-pointer transition-colors"
-                >
-                  Batal
-                </button>
-                <button
-                  type="button"
-                  disabled={toggling}
-                  onClick={handleConfirmToggle}
-                  className="px-4 py-2 bg-[#FF4500] text-white border-2 border-black font-bold text-xs uppercase tracking-wider shadow-[3px_3px_0px_0px_#000] hover:bg-[#E03E00] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none cursor-pointer transition-all flex items-center gap-2"
-                >
-                  {toggling ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Menyimpan...</span>
-                    </>
-                  ) : (
-                    <span>Ya, Terapkan Perubahan</span>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
 
       {/* Media Picker Modal (Select from existing uploaded images) */}
       {isPickerOpen &&
