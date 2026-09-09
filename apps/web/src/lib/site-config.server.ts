@@ -21,6 +21,8 @@ export interface DBComedian {
   totalOpenMic: number;
   isActive: boolean;
   avatarUrl?: string | null;
+  isFeaturedLineup?: boolean;
+  lineupOrder?: number;
 }
 
 export interface DBMerchandise {
@@ -289,10 +291,12 @@ export async function getComediansFromDB(): Promise<DBComedian[]> {
         phone,
         total_open_mic as "totalOpenMic",
         is_active as "isActive",
-        avatar_url as "avatarUrl"
+        avatar_url as "avatarUrl",
+        COALESCE(is_featured_lineup, false) as "isFeaturedLineup",
+        COALESCE(lineup_order, 0) as "lineupOrder"
       FROM comedians
       WHERE is_active = true
-      ORDER BY stage_name ASC
+      ORDER BY is_featured_lineup DESC, lineup_order ASC, stage_name ASC
     `;
     if (rows && rows.length > 0) {
       return rows as unknown as DBComedian[];
@@ -301,6 +305,100 @@ export async function getComediansFromDB(): Promise<DBComedian[]> {
     console.warn("Could not load comedians from database:", err);
   }
   return defaultWebComedians;
+}
+
+export async function getFeaturedLineupFromDB(): Promise<DBComedian[]> {
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return defaultWebComedians.slice(0, 3);
+  }
+  try {
+    const sql = getSql();
+    // 1. Direct query from comedians table marked as featured lineup
+    const featuredRows = await sql`
+      SELECT 
+        id,
+        real_name as "realName",
+        stage_name as "stageName",
+        comedy_style as "comedyStyle",
+        punchline,
+        bio,
+        phone,
+        total_open_mic as "totalOpenMic",
+        is_active as "isActive",
+        avatar_url as "avatarUrl",
+        COALESCE(is_featured_lineup, false) as "isFeaturedLineup",
+        COALESCE(lineup_order, 0) as "lineupOrder"
+      FROM comedians
+      WHERE is_active = true AND is_featured_lineup = true
+      ORDER BY lineup_order ASC, stage_name ASC
+    `;
+    if (featuredRows && featuredRows.length > 0) {
+      return featuredRows as unknown as DBComedian[];
+    }
+
+    // 2. Fallback: Check settings table key 'featured_comedian_ids'
+    try {
+      const sRow = await sql`
+        SELECT value FROM settings WHERE key = 'featured_comedian_ids' LIMIT 1
+      `;
+      if (sRow && sRow.length > 0 && sRow[0]?.value) {
+        const ids = JSON.parse(String(sRow[0].value)) as string[];
+        if (Array.isArray(ids) && ids.length > 0) {
+          const idRows = await sql`
+            SELECT 
+              id,
+              real_name as "realName",
+              stage_name as "stageName",
+              comedy_style as "comedyStyle",
+              punchline,
+              bio,
+              phone,
+              total_open_mic as "totalOpenMic",
+              is_active as "isActive",
+              avatar_url as "avatarUrl",
+              true as "isFeaturedLineup",
+              0 as "lineupOrder"
+            FROM comedians
+            WHERE id IN ${sql(ids)} AND is_active = true
+          `;
+          if (idRows && idRows.length > 0) {
+            return ids
+              .map((id) => idRows.find((r: any) => r.id === id))
+              .filter(Boolean) as unknown as DBComedian[];
+          }
+        }
+      }
+    } catch {
+      // Ignore fallback error
+    }
+
+    // 3. Fallback: Take top 3 active comedians
+    const topActive = await sql`
+      SELECT 
+        id,
+        real_name as "realName",
+        stage_name as "stageName",
+        comedy_style as "comedyStyle",
+        punchline,
+        bio,
+        phone,
+        total_open_mic as "totalOpenMic",
+        is_active as "isActive",
+        avatar_url as "avatarUrl",
+        false as "isFeaturedLineup",
+        0 as "lineupOrder"
+      FROM comedians
+      WHERE is_active = true
+      ORDER BY stage_name ASC
+      LIMIT 3
+    `;
+    if (topActive && topActive.length > 0) {
+      return topActive as unknown as DBComedian[];
+    }
+  } catch (err) {
+    console.warn("Could not load featured lineup from database:", err);
+  }
+  return defaultWebComedians.slice(0, 3);
 }
 
 export async function getMerchandiseFromDB(): Promise<DBMerchandise[]> {

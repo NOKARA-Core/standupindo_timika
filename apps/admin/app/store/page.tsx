@@ -18,8 +18,10 @@ import {
   Package,
   ArrowDownRight,
   Sparkles,
+  Images,
 } from "lucide-react";
 import { MerchItem } from "../api/merchandise/route";
+import MediaPickerModal from "../../src/components/MediaPickerModal";
 
 const CATEGORIES = ["ALL", "T-Shirt", "Hoodie", "Aksesoris", "Tiket"] as const;
 
@@ -52,6 +54,7 @@ export default function StoreAdminPage() {
   // Image upload staging
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
 
   const showToast = (text: string, type: "success" | "error" = "success") => {
     setFeedbackMessage({ text, type });
@@ -789,24 +792,48 @@ export default function StoreAdminPage() {
                     )}
                   </div>
 
-                  <div className="flex-1 space-y-1">
-                    <label className="inline-flex items-center gap-1 px-3 py-1.5 bg-black hover:bg-[#FF4500] text-white text-xs font-mono font-bold border border-black cursor-pointer shadow-[2px_2px_0px_0px_#000]">
-                      {isUploadingImage ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Upload className="w-3.5 h-3.5" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsPickerOpen(true)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#FFF8F6] hover:bg-yellow-200 text-gray-900 text-xs font-mono font-bold border border-black cursor-pointer shadow-[2px_2px_0px_0px_#000] transition-colors"
+                      >
+                        <Images className="w-3.5 h-3.5 text-[#FF4500]" />
+                        <span>PILIH DARI STORAGE</span>
+                      </button>
+
+                      <label className="inline-flex items-center gap-1 px-3 py-1.5 bg-black hover:bg-[#FF4500] text-white text-xs font-mono font-bold border border-black cursor-pointer shadow-[2px_2px_0px_0px_#000]">
+                        {isUploadingImage ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="w-3.5 h-3.5" />
+                        )}
+                        <span>
+                          {isUploadingImage ? "UPLOADING..." : "UPLOAD BARU"}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingImage}
+                          className="hidden"
+                          onChange={handleImageFileChange}
+                        />
+                      </label>
+
+                      {imageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setImageUrl("");
+                            setImagePreview(null);
+                          }}
+                          className="px-2 py-1 text-xs text-red-600 hover:text-white hover:bg-red-600 border border-transparent hover:border-black transition-colors"
+                        >
+                          Hapus
+                        </button>
                       )}
-                      <span>
-                        {isUploadingImage ? "UPLOADING..." : "UPLOAD KE CLOUDINARY"}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        disabled={isUploadingImage}
-                        className="hidden"
-                        onChange={handleImageFileChange}
-                      />
-                    </label>
+                    </div>
                     <p className="text-[10px] text-gray-500 font-mono">
                       Rasio 1:1 Square (Transparan PNG / JPG max 2MB).
                     </p>
@@ -896,6 +923,18 @@ export default function StoreAdminPage() {
           </div>
         </div>
       )}
+
+      {/* Reusable Media Storage Picker Modal (Anti-Duplication) */}
+      <MediaPickerModal
+        isOpen={isPickerOpen}
+        onClose={() => setIsPickerOpen(false)}
+        onSelect={(asset) => {
+          setImageUrl(asset.url);
+          setImagePreview(asset.url);
+        }}
+        defaultType="DOCUMENTATION"
+        title="Pilih Gambar Produk Dari Media Storage"
+      />
     </div>
   );
 }

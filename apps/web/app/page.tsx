@@ -10,7 +10,7 @@ import { Footer } from "../src/components/Footer";
 import {
   getMediaSettingsFromDB,
   getPartnersFromDB,
-  getComediansFromDB,
+  getFeaturedLineupFromDB,
   getMerchandiseFromDB,
   getWhatsAppOrderNumberFromDB,
   getEventsFromDB,
@@ -20,11 +20,11 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function HomePage() {
-  const [config, partners, comedians, merchandise, whatsappNumber, events] =
+  const [config, partners, featuredComedians, merchandise, whatsappNumber, events] =
     await Promise.all([
       getMediaSettingsFromDB(),
       getPartnersFromDB(),
-      getComediansFromDB(),
+      getFeaturedLineupFromDB(),
       getMerchandiseFromDB(),
       getWhatsAppOrderNumberFromDB(),
       getEventsFromDB(),
@@ -37,7 +37,7 @@ export default async function HomePage() {
         <HeroSection heroConfig={config?.hero} />
         <ScheduleSection events={events} />
         <TalentGridSection
-          comedians={comedians}
+          comedians={featuredComedians}
           comediansConfig={config?.comedians}
         />
         <GallerySection documentationConfig={config?.flyers} />

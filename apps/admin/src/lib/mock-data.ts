@@ -28,6 +28,8 @@ export interface ComedianItem {
   totalOpenMic: number;
   isActive: boolean;
   avatarUrl?: string;
+  isFeaturedLineup?: boolean;
+  lineupOrder?: number;
 }
 
 export interface OpenMicRegistration {

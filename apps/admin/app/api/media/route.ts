@@ -223,6 +223,39 @@ export async function DELETE(request: Request) {
       console.warn("Could not sync site_assets_config on media delete:", e);
     }
 
+    // Synchronize comedians table if avatar_url uses this public_id
+    try {
+      await sql`
+        UPDATE comedians
+        SET avatar_url = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE avatar_url LIKE ${"%" + public_id + "%"}
+      `;
+    } catch (e) {
+      console.warn("Could not sync comedians table on media delete:", e);
+    }
+
+    // Synchronize events table if flyer_url uses this public_id
+    try {
+      await sql`
+        UPDATE events
+        SET flyer_url = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE flyer_url LIKE ${"%" + public_id + "%"}
+      `;
+    } catch (e) {
+      console.warn("Could not sync events table on media delete:", e);
+    }
+
+    // Synchronize merchandise table if image_url uses this public_id
+    try {
+      await sql`
+        UPDATE merchandise
+        SET image_url = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE image_url LIKE ${"%" + public_id + "%"}
+      `;
+    } catch (e) {
+      console.warn("Could not sync merchandise table on media delete:", e);
+    }
+
     // 4. Synchronize media_assets cache table
     try {
       await sql`

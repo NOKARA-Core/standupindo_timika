@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import {
   Image as ImageIcon,
   Upload,
@@ -24,6 +25,10 @@ import {
   Plus,
   Edit2,
   Globe,
+  Star,
+  ArrowUp,
+  ArrowDown,
+  RefreshCw,
 } from "lucide-react";
 import {
   SiteAssetsConfig,
@@ -31,6 +36,7 @@ import {
 } from "../../src/lib/site-config";
 import {
   MediaAsset,
+  ComedianItem,
 } from "../../src/lib/mock-data";
 
 interface StagedSlot {
@@ -88,6 +94,12 @@ export default function MediaAssetsAdminPage() {
   } | null>(null);
   const [isSavingPartner, setIsSavingPartner] = useState(false);
   const [isDeletingPartnerId, setIsDeletingPartnerId] = useState<string | null>(null);
+
+  // Comedians Lineup Selector State (Tabel Comedians - Single Source of Truth)
+  const [comediansList, setComediansList] = useState<ComedianItem[]>([]);
+  const [loadingComedians, setLoadingComedians] = useState(false);
+  const [isSavingLineup, setIsSavingLineup] = useState(false);
+  const [lineupSuccessMsg, setLineupSuccessMsg] = useState<string | null>(null);
 
   // Client helper for uploading to /api/upload
   const uploadFileToServer = async (
@@ -149,6 +161,115 @@ export default function MediaAssetsAdminPage() {
     }
   };
 
+  const fetchComedians = async () => {
+    try {
+      setLoadingComedians(true);
+      const res = await fetch("/api/comedians");
+      if (res.ok) {
+        const data = await res.json();
+        setComediansList(data);
+      }
+    } catch (err) {
+      console.warn("Could not load comedians in media page:", err);
+    } finally {
+      setLoadingComedians(false);
+    }
+  };
+
+  // Lineup manipulation handlers
+  const handleToggleLineup = (comedianId: string) => {
+    setComediansList((prev) => {
+      const target = prev.find((c) => c.id === comedianId);
+      if (!target) return prev;
+      const nextFeatured = !target.isFeaturedLineup;
+      if (nextFeatured) {
+        const currentFeatured = prev.filter((c) => c.isFeaturedLineup);
+        const nextOrder = currentFeatured.length + 1;
+        return prev.map((c) =>
+          c.id === comedianId
+            ? { ...c, isFeaturedLineup: true, lineupOrder: nextOrder }
+            : c
+        );
+      } else {
+        return prev.map((c) =>
+          c.id === comedianId
+            ? { ...c, isFeaturedLineup: false, lineupOrder: 0 }
+            : c
+        );
+      }
+    });
+  };
+
+  const handleOrderChange = (comedianId: string, orderVal: number) => {
+    const val = isNaN(orderVal) ? 1 : Math.max(1, orderVal);
+    setComediansList((prev) =>
+      prev.map((c) =>
+        c.id === comedianId ? { ...c, lineupOrder: val } : c
+      )
+    );
+  };
+
+  const handleMoveOrder = (comedianId: string, direction: "up" | "down") => {
+    setComediansList((prev) => {
+      const featured = prev
+        .filter((c) => c.isFeaturedLineup)
+        .sort((a, b) => (a.lineupOrder || 0) - (b.lineupOrder || 0));
+      const idx = featured.findIndex((c) => c.id === comedianId);
+      if (idx === -1) return prev;
+      if (direction === "up" && idx === 0) return prev;
+      if (direction === "down" && idx === featured.length - 1) return prev;
+
+      const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+      const currentItem = featured[idx];
+      const otherItem = featured[targetIdx];
+      if (!currentItem || !otherItem) return prev;
+
+      const currentOrder = currentItem.lineupOrder || idx + 1;
+      const otherOrder = otherItem.lineupOrder || targetIdx + 1;
+
+      return prev.map((c) => {
+        if (c.id === currentItem.id) return { ...c, lineupOrder: otherOrder };
+        if (c.id === otherItem.id) return { ...c, lineupOrder: currentOrder };
+        return c;
+      });
+    });
+  };
+
+  const handleSaveLineup = async () => {
+    setIsSavingLineup(true);
+    setLineupSuccessMsg(null);
+    try {
+      const payload = {
+        lineup: comediansList.map((c) => ({
+          id: c.id,
+          isFeaturedLineup: Boolean(c.isFeaturedLineup),
+          lineupOrder: c.isFeaturedLineup ? (c.lineupOrder || 1) : 0,
+        })),
+      };
+      const res = await fetch("/api/comedians/lineup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.comedians) {
+          setComediansList(data.comedians);
+        }
+        setLineupSuccessMsg("Konfigurasi THE LINEUP berhasil disimpan ke tabel comedians!");
+        setTimeout(() => setLineupSuccessMsg(null), 5000);
+      } else {
+        const errData = await res.json();
+        alert(errData.error || "Gagal menyimpan lineup");
+      }
+    } catch (err) {
+      console.error("Save lineup error:", err);
+      alert("Terjadi kesalahan jaringan saat menyimpan lineup.");
+    } finally {
+      setIsSavingLineup(false);
+    }
+  };
+
   // Load configuration from API on mount
   useEffect(() => {
     async function loadConfig() {
@@ -167,6 +288,7 @@ export default function MediaAssetsAdminPage() {
     loadConfig();
     fetchMediaAssets();
     fetchPartners();
+    fetchComedians();
   }, []);
 
   // Cleanup object URLs on unmount
@@ -870,161 +992,260 @@ export default function MediaAssetsAdminPage() {
           );
         })()}
 
-        {/* SLOT 2: COMEDIANS HEADSHOTS */}
+        {/* SLOT 2: THE LINEUP ROSTER SELECTOR (TABEL COMEDIANS) */}
         <div className="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#000]">
-          <div className="pb-4 border-b-2 border-black">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-              <h3 className="text-sm font-bold text-gray-900 uppercase font-['Space_Mono',monospace] tracking-wider">
-                Slot 2: Comedians / Lineup Headshots
-              </h3>
+          <div className="pb-4 border-b-2 border-black flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                <h3 className="text-sm font-bold text-gray-900 uppercase font-['Space_Mono',monospace] tracking-wider">
+                  Slot 2: The Lineup Roster Selector (Tabel Comedians)
+                </h3>
+                <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-blue-100 text-blue-800 border border-blue-300">
+                  SINGLE SOURCE OF TRUTH
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Pilih komika dari tabel <code>comedians</code> untuk seksi <strong>THE LINEUP</strong> di beranda. Foto headshot langsung menggunakan URL Cloudinary dari profil komika tanpa duplikasi file.
+              </p>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Foto headshot komika roster pada seksi THE LINEUP (Rasio 1:1 Square).
-            </p>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={fetchComedians}
+                disabled={loadingComedians}
+                className="p-2 border border-black bg-white hover:bg-gray-100 text-gray-800 transition-colors shadow-[2px_2px_0px_0px_#000]"
+                title="Muat ulang data komika"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingComedians ? "animate-spin" : ""}`} />
+              </button>
+
+              <Link
+                href="/comedians"
+                className="inline-flex items-center gap-1 px-3 py-2 bg-[#FFF8F6] hover:bg-yellow-200 text-gray-900 text-xs font-mono font-bold border border-black shadow-[2px_2px_0px_0px_#000] transition-colors"
+                title="Buka halaman manajemen komika"
+              >
+                <span>Kelola Profil Komika</span>
+                <ExternalLink className="w-3 h-3" />
+              </Link>
+
+              <button
+                type="button"
+                disabled={isSavingLineup || loadingComedians}
+                onClick={handleSaveLineup}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-black hover:bg-[#FF4500] text-white text-xs font-mono font-bold border border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isSavingLineup ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Check className="w-3.5 h-3.5" />
+                )}
+                <span>{isSavingLineup ? "Menyimpan..." : "Simpan Lineup"}</span>
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-            {siteConfig.comedians.map((c) => {
-              const slotId = `comedian-${c.id}`;
-              const staged = stagedSlots[slotId];
-              const isUploading = uploadingSlot === slotId;
-              const feedback = slotFeedback[slotId];
-              const activeAvatar = staged ? staged.previewUrl : c.avatarUrl;
+          {/* Success Banner */}
+          {lineupSuccessMsg && (
+            <div className="mt-4 p-3 bg-emerald-100 border-2 border-emerald-600 text-emerald-900 text-xs font-mono font-bold flex items-center gap-2">
+              <Check className="w-4 h-4 text-emerald-700" />
+              <span>{lineupSuccessMsg}</span>
+            </div>
+          )}
 
-              return (
-                <div
-                  key={c.id}
-                  className="border-2 border-black p-4 bg-gray-50 flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between pb-2 border-b border-gray-300">
-                      <span className="font-bold text-xs text-gray-900">{c.name}</span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 bg-black text-white font-bold">
-                        {c.badge}
-                      </span>
-                    </div>
+          {/* Active Featured Summary */}
+          {(() => {
+            const featured = comediansList
+              .filter((c) => c.isFeaturedLineup)
+              .sort((a, b) => (a.lineupOrder || 0) - (b.lineupOrder || 0));
 
-                    {/* Preview Frame */}
-                    <div className="mt-3 aspect-square bg-white border-2 border-black relative overflow-hidden flex items-center justify-center">
-                      {activeAvatar ? (
-                        <Image
-                          src={activeAvatar}
-                          alt={c.name}
-                          fill
-                          className="object-cover filter grayscale contrast-125"
-                        />
-                      ) : (
-                        <div className="text-center p-3">
-                          <ImageIcon className="w-6 h-6 text-gray-300 mx-auto mb-1" />
-                          <span className="text-[11px] text-gray-400 font-mono block">
-                            Avatar Bawaan
-                          </span>
-                        </div>
-                      )}
-
-                      {staged && (
-                        <div className="absolute top-2 left-2 z-10 px-1.5 py-0.5 bg-yellow-300 border border-black text-[9px] font-bold">
-                          {staged.source === "storage" ? "STORAGE" : "STAGING"}
-                        </div>
-                      )}
-                    </div>
-
-                    {feedback && (
-                      <div className="mt-2 p-1 text-center bg-emerald-100 border border-emerald-400 text-emerald-800 text-[10px] font-bold">
-                        ✓ {feedback}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="mt-4 pt-3 border-t-2 border-black flex flex-col gap-2">
-                    {staged ? (
-                      <div className="flex items-center gap-1.5 w-full">
-                        <button
-                          type="button"
-                          disabled={isUploading}
-                          onClick={() => handleCancelPreview(slotId)}
-                          className="flex-1 py-1 text-[10px] font-bold border border-black bg-white hover:bg-gray-100"
-                        >
-                          Batal
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isUploading}
-                          onClick={() =>
-                            handleApplySlot(
-                              slotId,
-                              "stup-timika/comedians",
-                              (url) => ({
-                                ...siteConfig,
-                                comedians: siteConfig.comedians.map((item) =>
-                                  item.id === c.id
-                                    ? { ...item, avatarUrl: url, isCustom: true }
-                                    : item
-                                ),
-                              })
-                            )
-                          }
-                          className="flex-1 py-1 text-[10px] font-bold border border-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1"
-                        >
-                          {isUploading ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            "Terapkan"
-                          )}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-1.5">
-                        {(c.avatarUrl || c.isCustom) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (confirm(`Hapus foto profil untuk ${c.name}?`)) {
-                                handleResetSlot(slotId, () => ({
-                                  ...siteConfig,
-                                  comedians: siteConfig.comedians.map((item) =>
-                                    item.id === c.id
-                                      ? { ...item, avatarUrl: null, isCustom: false }
-                                      : item
-                                  ),
-                                }));
-                              }
-                            }}
-                            className="text-[10px] font-bold text-red-700 hover:text-white hover:bg-red-600 flex items-center gap-1 cursor-pointer bg-red-100 border border-black px-2 py-0.5 shadow-[1px_1px_0px_0px_#000] transition-colors"
-                            title="Hapus foto profil"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            <span>Hapus</span>
-                          </button>
-                        )}
-                        <div className="flex items-center gap-1 ml-auto">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenMediaPicker(slotId, "HEADSHOT")}
-                            className="p-1 bg-[#FFF8F6] border border-black text-black hover:bg-yellow-300"
-                            title="Pilih dari storage"
-                          >
-                            <Images className="w-3.5 h-3.5 text-[#FF4500]" />
-                          </button>
-                          <label className="inline-flex items-center gap-1 px-2 py-1 bg-black hover:bg-[#FF4500] text-white text-[10px] font-bold border border-black cursor-pointer">
-                            <Upload className="w-3 h-3" />
-                            <span>Upload</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => handleStageFile(slotId, e)}
-                            />
-                          </label>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+            return (
+              <div className="mt-4 p-3 bg-[#FFF8F6] border border-black flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-[#FF4500] fill-[#FF4500]" />
+                  <span className="font-bold text-gray-900 font-mono">
+                    {featured.length} Komika Ditampilkan di Beranda:
+                  </span>
+                  <span className="text-gray-700 font-mono">
+                    {featured.length > 0
+                      ? featured.map((c, i) => `#${i + 1} ${c.stageName}`).join(" → ")
+                      : "Belum ada komika yang dipilih (menggunakan fallback bawaan web)"}
+                  </span>
                 </div>
-              );
-            })}
+                <span className="text-[11px] text-gray-500 font-mono">
+                  Rekomendasi: 3 komika untuk layout grid beranda
+                </span>
+              </div>
+            );
+          })()}
+
+          {/* Comedians Selector Grid */}
+          <div className="mt-6">
+            {loadingComedians && comediansList.length === 0 ? (
+              <div className="p-12 text-center text-xs text-gray-500 font-mono border-2 border-dashed border-gray-300">
+                <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#FF4500]" />
+                <span>Memuat komika dari database Neon...</span>
+              </div>
+            ) : comediansList.length === 0 ? (
+              <div className="p-8 text-center text-xs text-gray-500 font-mono border-2 border-dashed border-gray-300">
+                Belum ada komika di tabel database. Buat komika baru di menu <Link href="/comedians" className="underline font-bold text-black">Comedians Roster</Link>.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {comediansList.map((c) => {
+                  const isFeatured = Boolean(c.isFeaturedLineup);
+
+                  return (
+                    <div
+                      key={c.id}
+                      className={`border-2 p-4 transition-all flex flex-col justify-between ${
+                        isFeatured
+                          ? "border-black bg-white shadow-[4px_4px_0px_0px_#FF4500]"
+                          : "border-gray-200 bg-gray-50 opacity-80 hover:opacity-100"
+                      }`}
+                    >
+                      <div>
+                        {/* Card Header: Checkbox & Order */}
+                        <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={isFeatured}
+                              onChange={() => handleToggleLineup(c.id)}
+                              className="w-4 h-4 text-[#FF4500] rounded-none cursor-pointer border-2 border-black"
+                            />
+                            <span
+                              className={`text-xs font-bold uppercase tracking-wider font-mono ${
+                                isFeatured ? "text-black" : "text-gray-500"
+                              }`}
+                            >
+                              {isFeatured ? "Featured di Lineup" : "Sembunyikan"}
+                            </span>
+                          </label>
+
+                          {isFeatured && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] font-mono text-gray-500 font-bold">
+                                Urutan:
+                              </span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={99}
+                                value={c.lineupOrder || 1}
+                                onChange={(e) =>
+                                  handleOrderChange(
+                                    c.id,
+                                    parseInt(e.target.value, 10) || 1
+                                  )
+                                }
+                                className="w-12 bg-white border border-black p-1 text-xs text-center font-bold font-mono"
+                              />
+                              <div className="flex flex-col">
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveOrder(c.id, "up")}
+                                  className="p-0.5 hover:bg-black hover:text-white border border-black text-gray-700"
+                                  title="Geser Urutan Naik"
+                                >
+                                  <ArrowUp className="w-2.5 h-2.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveOrder(c.id, "down")}
+                                  className="p-0.5 hover:bg-black hover:text-white border border-black text-gray-700"
+                                  title="Geser Urutan Turun"
+                                >
+                                  <ArrowDown className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Headshot & Profile Info */}
+                        <div className="mt-3 flex items-start gap-3">
+                          <div className="relative w-16 h-16 bg-black border-2 border-black overflow-hidden shrink-0">
+                            {c.avatarUrl ? (
+                              <Image
+                                src={c.avatarUrl}
+                                alt={c.stageName}
+                                fill
+                                className="object-cover filter grayscale contrast-125 hover:grayscale-0 transition-all"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 font-bold text-xs bg-gray-900">
+                                <ImageIcon className="w-5 h-5 mb-0.5" />
+                                <span className="text-[9px]">NO PIC</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-sm text-gray-900 font-mono truncate">
+                                {c.stageName}
+                              </span>
+                              <span className="text-[10px] font-mono px-1.5 py-0.2 bg-black text-white font-bold">
+                                {c.comedyStyle}
+                              </span>
+                            </div>
+                            <span className="text-xs text-gray-500 block truncate mt-0.5">
+                              {c.realName}
+                            </span>
+                            <p className="text-[11px] text-gray-600 line-clamp-2 mt-1 italic">
+                              &quot;{c.punchline || c.bio}&quot;
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Photo Source Notice */}
+                        {!c.avatarUrl && (
+                          <div className="mt-2.5 p-1.5 bg-amber-50 border border-amber-300 text-amber-900 text-[10px] font-mono flex items-center justify-between gap-1">
+                            <span>Foto belum disetel di profil</span>
+                            <Link
+                              href="/comedians"
+                              className="text-black font-bold underline"
+                            >
+                              Pasang Foto →
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Footer Badge */}
+                      <div className="mt-3 pt-2 border-t border-gray-200 flex items-center justify-between text-[10px] font-mono text-gray-500">
+                        <span>{c.totalOpenMic} Sets Panggung</span>
+                        <span className={c.isActive ? "text-emerald-700 font-bold" : "text-gray-400"}>
+                          {c.isActive ? "● Aktif di Web" : "○ Nonaktif"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Save Reminder */}
+          <div className="mt-6 pt-4 border-t-2 border-black flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <span className="text-xs text-gray-600 font-mono">
+              💡 Perubahan pilihan dan urutan komika akan langsung terlihat di beranda <code>/</code> seksi THE LINEUP setelah disimpan.
+            </span>
+            <button
+              type="button"
+              disabled={isSavingLineup || loadingComedians}
+              onClick={handleSaveLineup}
+              className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-black hover:bg-[#FF4500] text-white text-xs font-mono font-bold border border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isSavingLineup ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Check className="w-3.5 h-3.5" />
+              )}
+              <span>{isSavingLineup ? "Menyimpan..." : "SIMPAN KONFIGURASI LINEUP"}</span>
+            </button>
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import {
   Calendar,
   Plus,
@@ -13,8 +14,11 @@ import {
   RefreshCw,
   AlertTriangle,
   Loader2,
+  Images,
+  Image as ImageIcon,
 } from "lucide-react";
 import { EventItem } from "../../src/lib/mock-data";
+import MediaPickerModal from "../../src/components/MediaPickerModal";
 
 // Helper function: Check if event date has passed according to WIT (Papua / UTC+9)
 function isEventPassedWIT(dateStr: string, timeStr?: string): boolean {
@@ -138,6 +142,12 @@ export default function EventsAdminPage() {
     return matchStatus && matchSearch;
   });
 
+  const [flyerUrl, setFlyerUrl] = useState<string>("");
+
+  // Media Picker and upload states
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isUploadingFlyer, setIsUploadingFlyer] = useState(false);
+
   const openCreateModal = () => {
     setEditingEvent(null);
     setTitle("");
@@ -150,6 +160,7 @@ export default function EventsAdminPage() {
     setPrice("FREE ENTRY");
     setTaptapUrl("");
     setStatus("PUBLISHED");
+    setFlyerUrl("");
     setIsModalOpen(true);
   };
 
@@ -165,7 +176,34 @@ export default function EventsAdminPage() {
     setPrice(evt.price);
     setTaptapUrl(evt.taptapUrl || "");
     setStatus(evt.status);
+    setFlyerUrl(evt.flyerUrl || "");
     setIsModalOpen(true);
+  };
+
+  const handleFlyerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingFlyer(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "stup-timika/flyers");
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFlyerUrl(data.url);
+      } else {
+        alert("Gagal mengunggah flyer.");
+      }
+    } catch (err) {
+      console.error("Upload flyer error:", err);
+      alert("Terjadi kesalahan saat mengunggah flyer.");
+    } finally {
+      setIsUploadingFlyer(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -184,6 +222,7 @@ export default function EventsAdminPage() {
         price,
         taptapUrl,
         status,
+        flyerUrl: flyerUrl.trim() || undefined,
         capacity: type === "OPEN MIC" ? 60 : 250,
       };
 
@@ -628,6 +667,75 @@ export default function EventsAdminPage() {
                 </div>
               </div>
 
+              {/* Flyer / Poster Image (Single Source of Truth) */}
+              <div className="border-2 border-black p-3 bg-gray-50 space-y-2">
+                <label className="block text-xs font-bold text-gray-900 uppercase font-['Space_Mono',monospace]">
+                  Flyer / Poster Acara (Cloudinary CDN)
+                </label>
+
+                <div className="flex items-center gap-3">
+                  <div className="relative w-16 h-20 bg-white border-2 border-black overflow-hidden shrink-0 flex items-center justify-center">
+                    {flyerUrl ? (
+                      <Image
+                        src={flyerUrl}
+                        alt="Flyer preview"
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <ImageIcon className="w-6 h-6 text-gray-300" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 flex flex-col gap-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsPickerOpen(true)}
+                        className="px-2.5 py-1.5 bg-[#FFF8F6] hover:bg-yellow-200 text-gray-900 border border-black text-xs font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors shadow-[2px_2px_0px_0px_#000]"
+                      >
+                        <Images className="w-3.5 h-3.5 text-[#FF4500]" />
+                        <span>Pilih Dari Storage</span>
+                      </button>
+
+                      <label className="px-2.5 py-1.5 bg-black hover:bg-[#FF4500] text-white border border-black text-xs font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors shadow-[2px_2px_0px_0px_#000]">
+                        {isUploadingFlyer ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="w-3.5 h-3.5" />
+                        )}
+                        <span>{isUploadingFlyer ? "Uploading..." : "Upload Baru"}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingFlyer}
+                          onChange={handleFlyerUpload}
+                          className="hidden"
+                        />
+                      </label>
+
+                      {flyerUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setFlyerUrl("")}
+                          className="px-2 py-1 text-xs text-red-600 hover:text-white hover:bg-red-600 border border-transparent hover:border-black transition-colors"
+                        >
+                          Hapus
+                        </button>
+                      )}
+                    </div>
+
+                    <input
+                      type="text"
+                      value={flyerUrl}
+                      onChange={(e) => setFlyerUrl(e.target.value)}
+                      placeholder="URL Cloudinary atau pilih dari storage..."
+                      className="w-full bg-white border border-gray-300 px-2 py-1 text-[11px] font-mono text-gray-700 focus:outline-none focus:border-black"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -685,6 +793,15 @@ export default function EventsAdminPage() {
           </div>
         </div>
       )}
+
+      {/* Reusable Media Storage Picker Modal (Anti-Duplication) */}
+      <MediaPickerModal
+        isOpen={isPickerOpen}
+        onClose={() => setIsPickerOpen(false)}
+        onSelect={(asset) => setFlyerUrl(asset.url)}
+        defaultType="FLYER"
+        title="Pilih Flyer Acara Dari Media Storage"
+      />
     </div>
   );
 }

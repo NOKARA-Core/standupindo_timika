@@ -16,8 +16,12 @@ import {
   AlertTriangle,
   Loader2,
   Camera,
+  Images,
+  Star,
+  Image as ImageIcon,
 } from "lucide-react";
 import { ComedianItem } from "../../src/lib/mock-data";
+import MediaPickerModal from "../../src/components/MediaPickerModal";
 
 export default function ComediansAdminPage() {
   const [comedians, setComedians] = useState<ComedianItem[]>([]);
@@ -28,6 +32,11 @@ export default function ComediansAdminPage() {
   const [deleteComedianId, setDeleteComedianId] = useState<string | null>(null);
   const [uploadingComedianId, setUploadingComedianId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Storage Media Picker states
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [pickerTargetComedianId, setPickerTargetComedianId] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   // Form states
   const [realName, setRealName] = useState("");
@@ -41,6 +50,8 @@ export default function ComediansAdminPage() {
   const [totalOpenMic, setTotalOpenMic] = useState(0);
   const [isActive, setIsActive] = useState(true);
   const [avatarUrl, setAvatarUrl] = useState<string>("");
+  const [isFeaturedLineup, setIsFeaturedLineup] = useState(false);
+  const [lineupOrder, setLineupOrder] = useState(0);
 
   const fetchComedians = async () => {
     try {
@@ -100,6 +111,9 @@ export default function ComediansAdminPage() {
     setTotalOpenMic(0);
     setIsActive(true);
     setAvatarUrl("");
+    setIsFeaturedLineup(false);
+    setLineupOrder(comedians.filter((c) => c.isFeaturedLineup).length + 1);
+    setPickerTargetComedianId(null);
     setIsModalOpen(true);
   };
 
@@ -114,7 +128,61 @@ export default function ComediansAdminPage() {
     setTotalOpenMic(c.totalOpenMic);
     setIsActive(c.isActive);
     setAvatarUrl(c.avatarUrl || "");
+    setIsFeaturedLineup(Boolean(c.isFeaturedLineup));
+    setLineupOrder(c.lineupOrder || 0);
+    setPickerTargetComedianId(null);
     setIsModalOpen(true);
+  };
+
+  const handleSelectFromStorage = async (asset: { url: string; name: string }) => {
+    if (pickerTargetComedianId) {
+      try {
+        const res = await fetch("/api/comedians", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: pickerTargetComedianId, avatarUrl: asset.url }),
+        });
+        if (res.ok) {
+          setComedians((prev) =>
+            prev.map((c) =>
+              c.id === pickerTargetComedianId ? { ...c, avatarUrl: asset.url } : c
+            )
+          );
+        }
+      } catch (err) {
+        console.error("Failed to update avatar from storage:", err);
+      } finally {
+        setPickerTargetComedianId(null);
+      }
+    } else {
+      setAvatarUrl(asset.url);
+    }
+  };
+
+  const handleModalPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "stup-timika/talents");
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAvatarUrl(data.url);
+      } else {
+        alert("Gagal mengunggah foto.");
+      }
+    } catch (err) {
+      console.error("Upload photo error:", err);
+      alert("Terjadi kesalahan saat upload foto.");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -132,6 +200,8 @@ export default function ComediansAdminPage() {
         totalOpenMic,
         isActive,
         avatarUrl: avatarUrl || undefined,
+        isFeaturedLineup,
+        lineupOrder: isFeaturedLineup ? lineupOrder : 0,
       };
 
       const res = await fetch("/api/comedians", {
@@ -288,6 +358,9 @@ export default function ComediansAdminPage() {
                   Punchline Signature
                 </th>
                 <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
+                  Featured Lineup
+                </th>
+                <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
                   Open Mic Sets
                 </th>
                 <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
@@ -301,14 +374,14 @@ export default function ComediansAdminPage() {
             <tbody>
               {loading && comedians.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-xs text-gray-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-xs text-gray-500">
                     <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-gray-400" />
                     <span>Memuat daftar komika dari Neon PostgreSQL...</span>
                   </td>
                 </tr>
               ) : filteredComedians.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-xs text-gray-500">
+                  <td colSpan={7} className="px-6 py-8 text-center text-xs text-gray-500">
                     Tidak ada komika yang cocok dengan pencarian.
                   </td>
                 </tr>
@@ -355,6 +428,16 @@ export default function ComediansAdminPage() {
                       </p>
                     </td>
                     <td className="px-6 py-4">
+                      {c.isFeaturedLineup ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                          <Star className="w-3.5 h-3.5 text-[#FF4500] fill-[#FF4500]" />
+                          <span>#{c.lineupOrder || 1} LINEUP</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400 font-mono">-</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
                       <span className="text-xs font-bold text-gray-900">
                         {c.totalOpenMic} Sets
                       </span>
@@ -385,10 +468,24 @@ export default function ComediansAdminPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {/* Storage Picker (Anti-Duplication) */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPickerTargetComedianId(c.id);
+                            setIsPickerOpen(true);
+                          }}
+                          className="px-2.5 py-1 text-xs font-semibold bg-[#FFF8F6] hover:bg-yellow-200 text-gray-900 border border-black transition-colors flex items-center gap-1 cursor-pointer shadow-[1px_1px_0px_0px_#000]"
+                          title="Pilih foto dari Cloudinary Storage tanpa upload baru"
+                        >
+                          <Images className="w-3.5 h-3.5 text-[#FF4500]" />
+                          <span>Storage</span>
+                        </button>
+
                         {/* Replace Photo Quick Button */}
                         <label
                           className="px-2.5 py-1 text-xs font-semibold bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 transition-colors flex items-center gap-1 cursor-pointer"
-                          title="Upload / Ganti Foto Komika"
+                          title="Upload Baru Foto Komika ke Cloudinary"
                         >
                           {uploadingComedianId === c.id ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-600" />
@@ -396,7 +493,7 @@ export default function ComediansAdminPage() {
                             <Camera className="w-3.5 h-3.5 text-gray-500" />
                           )}
                           <span>
-                            {uploadingComedianId === c.id ? "Uploading..." : "Photo"}
+                            {uploadingComedianId === c.id ? "Uploading..." : "Upload"}
                           </span>
                           <input
                             type="file"
@@ -547,44 +644,136 @@ export default function ComediansAdminPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    No. WhatsApp
-                  </label>
-                  <input
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+628..."
-                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    Foto Avatar URL
-                  </label>
-                  <input
-                    type="text"
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    placeholder="https://res.cloudinary.com/..."
-                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
-                  />
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                  No. WhatsApp
+                </label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+628..."
+                  className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                />
+              </div>
+
+              {/* Photo Asset Management (Anti-Duplication / Single Source of Truth) */}
+              <div className="border-2 border-black p-3 bg-gray-50 space-y-2">
+                <label className="block text-xs font-bold text-gray-900 uppercase font-['Space_Mono',monospace]">
+                  Foto Headshot Komika
+                </label>
+                <div className="flex items-center gap-3">
+                  {/* Photo Preview */}
+                  <div className="relative w-16 h-16 bg-white border-2 border-black overflow-hidden shrink-0 flex items-center justify-center">
+                    {avatarUrl ? (
+                      <Image
+                        src={avatarUrl}
+                        alt="Avatar preview"
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <ImageIcon className="w-6 h-6 text-gray-300" />
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex-1 flex flex-col gap-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPickerTargetComedianId(null);
+                          setIsPickerOpen(true);
+                        }}
+                        className="px-2.5 py-1.5 bg-[#FFF8F6] hover:bg-yellow-200 text-gray-900 border border-black text-xs font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors shadow-[2px_2px_0px_0px_#000]"
+                      >
+                        <Images className="w-3.5 h-3.5 text-[#FF4500]" />
+                        <span>Pilih Dari Storage</span>
+                      </button>
+
+                      <label className="px-2.5 py-1.5 bg-black hover:bg-[#FF4500] text-white border border-black text-xs font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors shadow-[2px_2px_0px_0px_#000]">
+                        {isUploadingPhoto ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="w-3.5 h-3.5" />
+                        )}
+                        <span>{isUploadingPhoto ? "Uploading..." : "Upload Baru"}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingPhoto}
+                          onChange={handleModalPhotoUpload}
+                          className="hidden"
+                        />
+                      </label>
+
+                      {avatarUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setAvatarUrl("")}
+                          className="px-2 py-1 text-xs text-red-600 hover:text-white hover:bg-red-600 border border-transparent hover:border-black transition-colors"
+                        >
+                          Hapus
+                        </button>
+                      )}
+                    </div>
+
+                    <input
+                      type="text"
+                      value={avatarUrl}
+                      onChange={(e) => setAvatarUrl(e.target.value)}
+                      placeholder="URL Cloudinary atau pilih dari storage..."
+                      className="w-full bg-white border border-gray-300 px-2 py-1 text-[11px] font-mono text-gray-700 focus:outline-none focus:border-black"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="isActiveCheck"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                  className="w-4 h-4 text-gray-900"
-                />
-                <label htmlFor="isActiveCheck" className="text-xs font-semibold text-gray-700">
-                  Tampilkan komika di Halaman Publik Web (Aktif)
-                </label>
+              {/* Lineup & Visibility Settings */}
+              <div className="p-3 bg-amber-50 border border-amber-300 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isFeaturedCheck"
+                      checked={isFeaturedLineup}
+                      onChange={(e) => setIsFeaturedLineup(e.target.checked)}
+                      className="w-4 h-4 text-[#FF4500]"
+                    />
+                    <label htmlFor="isFeaturedCheck" className="text-xs font-bold text-gray-900 cursor-pointer flex items-center gap-1">
+                      <Star className="w-3.5 h-3.5 text-[#FF4500] fill-[#FF4500]" />
+                      <span>Tampilkan di THE LINEUP (Homepage)</span>
+                    </label>
+                  </div>
+
+                  {isFeaturedLineup && (
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-xs font-semibold text-gray-700">Urutan:</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={99}
+                        value={lineupOrder}
+                        onChange={(e) => setLineupOrder(parseInt(e.target.value, 10) || 1)}
+                        className="w-16 bg-white border border-gray-300 p-1 text-xs text-center font-bold"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 pt-1 border-t border-amber-200">
+                  <input
+                    type="checkbox"
+                    id="isActiveCheck"
+                    checked={isActive}
+                    onChange={(e) => setIsActive(e.target.checked)}
+                    className="w-4 h-4 text-gray-900"
+                  />
+                  <label htmlFor="isActiveCheck" className="text-xs font-semibold text-gray-700">
+                    Tampilkan komika di Halaman Publik Web (Aktif)
+                  </label>
+                </div>
               </div>
 
               <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-2">
@@ -644,6 +833,18 @@ export default function ComediansAdminPage() {
           </div>
         </div>
       )}
+
+      {/* Reusable Media Storage Picker Modal (Anti-Duplication) */}
+      <MediaPickerModal
+        isOpen={isPickerOpen}
+        onClose={() => {
+          setIsPickerOpen(false);
+          setPickerTargetComedianId(null);
+        }}
+        onSelect={handleSelectFromStorage}
+        defaultType="HEADSHOT"
+        title="Pilih Foto Komika Dari Media Storage"
+      />
     </div>
   );
 }

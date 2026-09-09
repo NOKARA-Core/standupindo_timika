@@ -17,9 +17,11 @@ export async function GET() {
         phone,
         total_open_mic as "totalOpenMic",
         is_active as "isActive",
-        avatar_url as "avatarUrl"
+        avatar_url as "avatarUrl",
+        COALESCE(is_featured_lineup, false) as "isFeaturedLineup",
+        COALESCE(lineup_order, 0) as "lineupOrder"
       FROM comedians
-      ORDER BY is_active DESC, stage_name ASC
+      ORDER BY is_featured_lineup DESC, lineup_order ASC, stage_name ASC
     `;
     return NextResponse.json(rows);
   } catch (error: any) {
@@ -43,12 +45,14 @@ export async function POST(request: Request) {
     const totalOpenMic = body.totalOpenMic || 0;
     const isActive = typeof body.isActive === "boolean" ? body.isActive : true;
     const avatarUrl = body.avatarUrl || null;
+    const isFeaturedLineup = Boolean(body.isFeaturedLineup);
+    const lineupOrder = typeof body.lineupOrder === "number" ? body.lineupOrder : 0;
 
     const inserted = await sql`
       INSERT INTO comedians (
-        id, real_name, stage_name, comedy_style, punchline, bio, phone, total_open_mic, is_active, avatar_url, updated_at
+        id, real_name, stage_name, comedy_style, punchline, bio, phone, total_open_mic, is_active, avatar_url, is_featured_lineup, lineup_order, updated_at
       ) VALUES (
-        ${id}, ${realName}, ${stageName}, ${comedyStyle}, ${punchline}, ${bio}, ${phone}, ${totalOpenMic}, ${isActive}, ${avatarUrl}, CURRENT_TIMESTAMP
+        ${id}, ${realName}, ${stageName}, ${comedyStyle}, ${punchline}, ${bio}, ${phone}, ${totalOpenMic}, ${isActive}, ${avatarUrl}, ${isFeaturedLineup}, ${lineupOrder}, CURRENT_TIMESTAMP
       )
       ON CONFLICT (id) DO UPDATE SET
         real_name = EXCLUDED.real_name,
@@ -60,12 +64,15 @@ export async function POST(request: Request) {
         total_open_mic = EXCLUDED.total_open_mic,
         is_active = EXCLUDED.is_active,
         avatar_url = COALESCE(EXCLUDED.avatar_url, comedians.avatar_url),
+        is_featured_lineup = EXCLUDED.is_featured_lineup,
+        lineup_order = EXCLUDED.lineup_order,
         updated_at = CURRENT_TIMESTAMP
       RETURNING 
-        id, real_name as "realName", stage_name as "stageName", comedy_style as "comedyStyle", punchline, bio, phone, total_open_mic as "totalOpenMic", is_active as "isActive", avatar_url as "avatarUrl"
+        id, real_name as "realName", stage_name as "stageName", comedy_style as "comedyStyle", punchline, bio, phone, total_open_mic as "totalOpenMic", is_active as "isActive", avatar_url as "avatarUrl", is_featured_lineup as "isFeaturedLineup", lineup_order as "lineupOrder"
     `;
 
     revalidatePath("/comedians");
+    revalidatePath("/media");
     revalidatePath("/");
 
     return NextResponse.json({ success: true, comedian: inserted[0] });
@@ -77,7 +84,8 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { id, isActive, avatarUrl } = await request.json();
+    const body = await request.json();
+    const { id, isActive, avatarUrl, isFeaturedLineup, lineupOrder } = body;
     if (!id) {
       return NextResponse.json({ error: "Missing comedian id" }, { status: 400 });
     }
@@ -85,17 +93,38 @@ export async function PATCH(request: Request) {
     const sql = getSql();
     let updated;
 
-    if (typeof isActive === "boolean") {
+    if (typeof isFeaturedLineup === "boolean" && typeof lineupOrder === "number") {
+      updated = await sql`
+        UPDATE comedians 
+        SET is_featured_lineup = ${isFeaturedLineup}, lineup_order = ${lineupOrder}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${id}
+        RETURNING id, is_featured_lineup as "isFeaturedLineup", lineup_order as "lineupOrder"
+      `;
+    } else if (typeof isFeaturedLineup === "boolean") {
+      updated = await sql`
+        UPDATE comedians 
+        SET is_featured_lineup = ${isFeaturedLineup}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${id}
+        RETURNING id, is_featured_lineup as "isFeaturedLineup"
+      `;
+    } else if (typeof lineupOrder === "number") {
+      updated = await sql`
+        UPDATE comedians 
+        SET lineup_order = ${lineupOrder}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${id}
+        RETURNING id, lineup_order as "lineupOrder"
+      `;
+    } else if (typeof isActive === "boolean") {
       updated = await sql`
         UPDATE comedians 
         SET is_active = ${isActive}, updated_at = CURRENT_TIMESTAMP
         WHERE id = ${id}
         RETURNING id, is_active as "isActive"
       `;
-    } else if (avatarUrl) {
+    } else if (avatarUrl !== undefined) {
       updated = await sql`
         UPDATE comedians 
-        SET avatar_url = ${avatarUrl}, updated_at = CURRENT_TIMESTAMP
+        SET avatar_url = ${avatarUrl || null}, updated_at = CURRENT_TIMESTAMP
         WHERE id = ${id}
         RETURNING id, avatar_url as "avatarUrl"
       `;
@@ -104,6 +133,7 @@ export async function PATCH(request: Request) {
     }
 
     revalidatePath("/comedians");
+    revalidatePath("/media");
     revalidatePath("/");
 
     return NextResponse.json({ success: true, comedian: updated[0] });
