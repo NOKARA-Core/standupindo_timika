@@ -396,9 +396,43 @@ export async function getMediaSettingsFromDB(): Promise<SiteAssetsConfig> {
     const sql = getSql();
     const rows =
       await sql`SELECT data FROM site_assets_config WHERE id = 'current' LIMIT 1`;
+    
+    // Also fetch settings for activity docs fallback
+    let settingsDocs: Record<string, string> = {};
+    try {
+      const sRows = await sql`
+        SELECT key, value FROM settings WHERE key IN ('activity_doc_1', 'activity_doc_2', 'activity_doc_3')
+      `;
+      sRows.forEach((r: any) => {
+        if (r.value) settingsDocs[r.key] = String(r.value);
+      });
+    } catch {
+      // Ignore settings fetch error
+    }
+
     if (rows && rows.length > 0 && rows[0]?.data) {
       const rawData = rows[0].data;
       const data = (typeof rawData === "string" ? JSON.parse(rawData) : rawData) as Partial<SiteAssetsConfig>;
+
+      const normalizedFlyers = defaultSiteConfig.flyers.map((defDoc, index) => {
+        const existing = data.flyers?.[index];
+        const settingVal = settingsDocs[`activity_doc_${index + 1}`] || null;
+        const activeUrl = existing?.url || existing?.imageUrl || existing?.flyerUrl || settingVal || null;
+        return {
+          ...defDoc,
+          ...(existing || {}),
+          id: defDoc.id,
+          title: defDoc.title,
+          badge: defDoc.badge,
+          venue: defDoc.venue,
+          details: defDoc.details,
+          url: activeUrl,
+          imageUrl: activeUrl,
+          flyerUrl: activeUrl,
+          isCustom: Boolean(activeUrl),
+        };
+      });
+
       return {
         useDynamicAssets: Boolean(data.useDynamicAssets),
         useDynamicPartners: data.useDynamicPartners !== false,
@@ -407,10 +441,8 @@ export async function getMediaSettingsFromDB(): Promise<SiteAssetsConfig> {
           data.comedians && data.comedians.length > 0
             ? data.comedians
             : defaultSiteConfig.comedians,
-        flyers:
-          data.flyers && data.flyers.length > 0
-            ? data.flyers
-            : defaultSiteConfig.flyers,
+        flyers: normalizedFlyers,
+        documentation: normalizedFlyers,
         merch:
           data.merch && data.merch.length > 0
             ? data.merch

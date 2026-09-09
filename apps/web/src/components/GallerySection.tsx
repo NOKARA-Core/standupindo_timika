@@ -1,12 +1,25 @@
 import Image from "next/image";
 import { Camera } from "lucide-react";
-import { DocumentationAssetConfig } from "../lib/site-config";
+import {
+  DocumentationAssetConfig,
+  DEFAULT_STATIC_DOC_1,
+  DEFAULT_STATIC_DOC_2,
+  DEFAULT_STATIC_DOC_3,
+} from "../lib/site-config";
+
+export { DEFAULT_STATIC_DOC_1, DEFAULT_STATIC_DOC_2, DEFAULT_STATIC_DOC_3 };
 
 interface GalleryItem {
   title: string;
   tag: string;
   category: string;
 }
+
+const defaultStaticFallbacks = [
+  DEFAULT_STATIC_DOC_1,
+  DEFAULT_STATIC_DOC_2,
+  DEFAULT_STATIC_DOC_3,
+];
 
 const galleryItems: GalleryItem[] = [
   {
@@ -35,6 +48,8 @@ export function GallerySection({
   documentationConfig,
   isDynamic = false,
 }: GallerySectionProps) {
+  const docs = documentationConfig || [];
+
   return (
     <section className="w-full bg-[#FFF8F6] py-16 px-6 md:px-12 lg:px-20 border-b-2 border-black">
       <div className="max-w-[1280px] mx-auto flex flex-col gap-8">
@@ -48,12 +63,17 @@ export function GallerySection({
           </h2>
         </div>
 
-        {/* Gallery Grid */}
+        {/* Gallery Grid: Exactly 3 Bento Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {galleryItems.map((item, index) => {
-            const dynamicItem = documentationConfig?.[index];
+            const dynamicItem = docs[index];
+            const fallbackStatic = defaultStaticFallbacks[index] || null;
             const activeImageUrl =
-              dynamicItem?.imageUrl?.trim() || dynamicItem?.flyerUrl?.trim() || null;
+              dynamicItem?.url?.trim() ||
+              dynamicItem?.imageUrl?.trim() ||
+              dynamicItem?.flyerUrl?.trim() ||
+              fallbackStatic ||
+              null;
             const displayTitle =
               dynamicItem?.isCustom && dynamicItem?.title
                 ? dynamicItem.title

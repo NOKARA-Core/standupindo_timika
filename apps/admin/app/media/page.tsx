@@ -617,10 +617,10 @@ export default function MediaAssetsAdminPage() {
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-gray-900">3. Dokumentasi Kegiatan</span>
-                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-black text-white">16:9 / 4:3</span>
+                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-black text-white">3 Slot Foto (16:9)</span>
               </div>
               <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
-                Dokumentasi panggung, tawa penonton, dan bento galeri arsip.
+                Dokumentasi panggung, antusiasme penonton, dan bento galeri arsip.
               </p>
             </div>
             <div className="mt-3 pt-2 border-t border-gray-200 text-[10px] text-gray-500 font-mono">
@@ -1028,52 +1028,65 @@ export default function MediaAssetsAdminPage() {
           </div>
         </div>
 
-        {/* SLOT 3: DOKUMENTASI KEGIATAN */}
+        {/* SLOT 3: DOKUMENTASI KEGIATAN (3 SLOTS) */}
         <div className="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#000]">
           <div className="pb-4 border-b-2 border-black">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
               <h3 className="text-sm font-bold text-gray-900 uppercase font-['Space_Mono',monospace] tracking-wider">
-                Slot 3: Dokumentasi Kegiatan
+                Slot 3: Dokumentasi Kegiatan (3 Slot)
               </h3>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Panduan spesifikasi: Rasio 16:9 atau 4:3 (Dokumentasi panggung/kegiatan komunitas, Max: 2 MB). Terhubung ke galeri arsip bento halaman About.
+              Panduan spesifikasi: Rasio 16:9 atau 4:3 (Dokumentasi panggung/kegiatan komunitas, Max: 2 MB). Terhubung langsung ke 3 kartu bento galeri kegiatan di landing page web dan halaman About.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-            {siteConfig.flyers.map((f) => {
-              const slotId = `flyer-${f.id}`;
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+            {siteConfig.flyers.slice(0, 3).map((f, idx) => {
+              const slotNum = idx + 1;
+              const slotLabel = `Dokumentasi Kegiatan #${slotNum}`;
+              const slotId = `flyer-${f.id || `activity-doc-${slotNum}`}`;
               const staged = stagedSlots[slotId];
               const isUploading = uploadingSlot === slotId;
               const feedback = slotFeedback[slotId];
-              const activeFlyer = staged ? staged.previewUrl : (f.imageUrl || f.flyerUrl);
+              const activePhoto = staged
+                ? staged.previewUrl
+                : (f.url || f.imageUrl || f.flyerUrl || null);
 
               return (
                 <div
-                  key={f.id}
-                  className="border-2 border-black p-4 bg-gray-50 flex flex-col justify-between"
+                  key={f.id || idx}
+                  className="border-2 border-black p-4 bg-gray-50 flex flex-col justify-between shadow-[3px_3px_0px_0px_#000]"
                 >
                   <div>
+                    {/* Slot Header with Slot Label */}
                     <div className="flex items-center justify-between pb-2 border-b border-gray-300">
                       <div className="flex items-center gap-1.5 truncate">
-                        {f.badge && (
-                          <span className="px-1.5 py-0.2 bg-black text-white text-[9px] font-bold uppercase font-mono">
-                            {f.badge}
-                          </span>
-                        )}
-                        <span className="font-bold text-xs text-gray-900 truncate">{f.title}</span>
+                        <span className="px-1.5 py-0.5 bg-black text-white text-[9px] font-bold uppercase font-mono">
+                          Slot {slotNum}
+                        </span>
+                        <span className="font-bold text-xs text-gray-900 truncate">
+                          {slotLabel}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-gray-600 font-mono ml-2 shrink-0">{f.venue}</span>
+                      {f.badge && (
+                        <span className="px-1.5 py-0.5 bg-[#FF4500] text-white text-[8px] font-bold uppercase font-mono ml-2 shrink-0 border border-black">
+                          {f.badge}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 text-[10px] text-gray-600 font-mono flex items-center justify-between">
+                      <span className="truncate font-semibold text-gray-800">{f.title}</span>
+                      <span className="shrink-0 text-gray-500 ml-1">{f.venue}</span>
                     </div>
 
-                    {/* Preview Frame 16:9 */}
-                    <div className="mt-3 aspect-[16/9] max-h-[220px] bg-white border-2 border-black relative overflow-hidden flex items-center justify-center mx-auto w-full">
-                      {activeFlyer ? (
+                    {/* Area Preview Staging foto */}
+                    <div className="mt-3 aspect-[16/9] max-h-[220px] bg-white border-2 border-black relative overflow-hidden flex items-center justify-center mx-auto w-full shadow-[2px_2px_0px_0px_#000]">
+                      {activePhoto ? (
                         <Image
-                          src={activeFlyer}
-                          alt={f.title}
+                          src={activePhoto}
+                          alt={slotLabel}
                           fill
                           unoptimized
                           className="object-cover"
@@ -1088,19 +1101,20 @@ export default function MediaAssetsAdminPage() {
                       )}
 
                       {staged && (
-                        <div className="absolute top-2 left-2 z-10 px-1.5 py-0.5 bg-yellow-300 border border-black text-[9px] font-bold">
-                          {staged.source === "storage" ? "STORAGE" : "STAGING"}
+                        <div className="absolute top-2 left-2 z-10 px-1.5 py-0.5 bg-yellow-300 border border-black text-[9px] font-bold shadow-[1px_1px_0px_0px_#000]">
+                          {staged.source === "storage" ? "STORAGE PREVIEW" : "STAGING PREVIEW"}
                         </div>
                       )}
                     </div>
 
                     {feedback && (
-                      <div className="mt-2 p-1 text-center bg-emerald-100 border border-emerald-400 text-emerald-800 text-[10px] font-bold">
+                      <div className="mt-2 p-1.5 text-center bg-emerald-100 border border-emerald-400 text-emerald-800 text-[10px] font-bold">
                         ✓ {feedback}
                       </div>
                     )}
                   </div>
 
+                  {/* Tombol aksi mandiri: Upload & Apply, Cancel Preview, Reset to Default */}
                   <div className="mt-4 pt-3 border-t-2 border-black flex flex-col gap-2">
                     {staged ? (
                       <div className="flex items-center gap-1.5 w-full">
@@ -1108,9 +1122,9 @@ export default function MediaAssetsAdminPage() {
                           type="button"
                           disabled={isUploading}
                           onClick={() => handleCancelPreview(slotId)}
-                          className="flex-1 py-1 text-[10px] font-bold border border-black bg-white hover:bg-gray-100"
+                          className="flex-1 py-1.5 text-[11px] font-bold border border-black bg-white hover:bg-gray-100 shadow-[1px_1px_0px_0px_#000] cursor-pointer"
                         >
-                          Batal
+                          Cancel Preview
                         </button>
                         <button
                           type="button"
@@ -1118,56 +1132,59 @@ export default function MediaAssetsAdminPage() {
                           onClick={() =>
                             handleApplySlot(slotId, "stup-timika/documentation", (url) => ({
                               ...siteConfig,
-                              flyers: siteConfig.flyers.map((item) =>
-                                item.id === f.id
-                                  ? { ...item, flyerUrl: url, imageUrl: url, isCustom: true }
+                              flyers: siteConfig.flyers.map((item, i) =>
+                                i === idx || item.id === f.id
+                                  ? { ...item, url, flyerUrl: url, imageUrl: url, isCustom: true }
                                   : item
                               ),
                             }))
                           }
-                          className="flex-1 py-1 text-[10px] font-bold border border-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1"
+                          className="flex-1 py-1.5 text-[11px] font-bold border border-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1 shadow-[1px_1px_0px_0px_#000] cursor-pointer"
                         >
                           {isUploading ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : (
-                            "Terapkan"
+                            "Upload & Apply"
                           )}
                         </button>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between gap-1.5">
-                        {(f.flyerUrl || f.imageUrl || f.isCustom) && (
+                        {(f.flyerUrl || f.imageUrl || f.url || f.isCustom) ? (
                           <button
                             type="button"
                             onClick={() => {
-                              if (confirm(`Hapus foto dokumentasi untuk ${f.title}?`)) {
+                              if (confirm(`Reset ${slotLabel} (${f.title}) ke aset default?`)) {
                                 handleResetSlot(slotId, () => ({
                                   ...siteConfig,
-                                  flyers: siteConfig.flyers.map((item) =>
-                                    item.id === f.id
-                                      ? { ...item, flyerUrl: null, imageUrl: null, isCustom: false }
+                                  flyers: siteConfig.flyers.map((item, i) =>
+                                    i === idx || item.id === f.id
+                                      ? { ...item, url: null, flyerUrl: null, imageUrl: null, isCustom: false }
                                       : item
                                   ),
                                 }));
                               }
                             }}
-                            className="text-[10px] font-bold text-red-700 hover:text-white hover:bg-red-600 flex items-center gap-1 cursor-pointer bg-red-100 border border-black px-2 py-0.5 shadow-[1px_1px_0px_0px_#000] transition-colors"
-                            title="Hapus foto dokumentasi"
+                            className="text-[10px] font-bold text-red-700 hover:text-white hover:bg-red-600 flex items-center gap-1 cursor-pointer bg-red-100 border border-black px-2 py-1 shadow-[1px_1px_0px_0px_#000] transition-colors"
+                            title="Reset slot ke foto/teks bawaan"
                           >
-                            <Trash2 className="w-3 h-3" />
-                            <span>Hapus</span>
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Reset to Default</span>
                           </button>
+                        ) : (
+                          <span className="text-[10px] text-gray-400 font-mono italic">Default</span>
                         )}
+
                         <div className="flex items-center gap-1 ml-auto">
                           <button
                             type="button"
                             onClick={() => handleOpenMediaPicker(slotId, "DOCUMENTATION")}
-                            className="p-1 bg-[#FFF8F6] border border-black text-black hover:bg-yellow-300"
-                            title="Pilih foto dokumentasi dari storage"
+                            className="p-1.5 bg-[#FFF8F6] border border-black text-black hover:bg-yellow-300 shadow-[1px_1px_0px_0px_#000] cursor-pointer transition-colors"
+                            title="Pilih foto dokumentasi dari Cloudinary Storage"
                           >
                             <Images className="w-3.5 h-3.5 text-[#FF4500]" />
                           </button>
-                          <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-black hover:bg-[#FF4500] text-white text-[10px] font-bold border border-black cursor-pointer">
+                          <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-black hover:bg-[#FF4500] text-white text-[10px] font-bold border border-black shadow-[1px_1px_0px_0px_#000] cursor-pointer transition-colors">
                             <Upload className="w-3 h-3" />
                             <span>Upload</span>
                             <input

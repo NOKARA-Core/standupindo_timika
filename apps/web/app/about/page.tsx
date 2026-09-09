@@ -145,7 +145,10 @@ export default async function AboutPage() {
               const dynamicItem =
                 dynamicDocs[index] || dynamicDocs.find((d) => d.id === archive.id);
               const photoUrl =
-                dynamicItem?.imageUrl?.trim() || dynamicItem?.flyerUrl?.trim() || null;
+                dynamicItem?.url?.trim() ||
+                dynamicItem?.imageUrl?.trim() ||
+                dynamicItem?.flyerUrl?.trim() ||
+                null;
 
               return (
                 <AnimateReveal

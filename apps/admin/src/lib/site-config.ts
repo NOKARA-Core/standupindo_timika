@@ -24,8 +24,9 @@ export interface DocumentationAssetConfig {
   date?: string;
   venue?: string;
   details?: string;
-  flyerUrl: string | null;
+  flyerUrl?: string | null;
   imageUrl?: string | null;
+  url?: string | null;
   isCustom: boolean;
 }
 
@@ -93,47 +94,39 @@ export const defaultSiteConfig: SiteAssetsConfig = {
   ],
   flyers: [
     {
-      id: "doc-origin",
-      title: "FIRST OPEN MIC IN MIMIKA (2018)",
-      badge: "ORIGIN STORY",
-      date: "2018",
-      venue: "WARUNG KOPI YOS SUDARSO",
-      details: "Bermula dari 5 orang berkumpul di warung kopi Jalan Yos Sudarso dengan satu mic kabel.",
+      id: "activity-doc-1",
+      title: "MAIN EVENT LIVE STAGE",
+      badge: "SPECIAL SHOW",
+      date: "SPECIAL SHOW",
+      venue: "TIMIKA MAIN STAGE",
+      details: "Dokumentasi sorotan panggung utama dan penampilan komika.",
       flyerUrl: null,
       imageUrl: null,
+      url: null,
       isCustom: false,
     },
     {
-      id: "doc-milestone",
-      title: "100+ JAM TERTAWA",
-      badge: "MILESTONE",
-      date: "150+ SHOWS",
-      venue: "TIMIKA CAFE CIRCUIT",
-      details: "Lebih dari 150 kali open mic digelar di berbagai kafe dan sudut kota Timika.",
+      id: "activity-doc-2",
+      title: "CROWD REACTIONS & LAUGHTER",
+      badge: "AUDIENCE",
+      date: "AUDIENCE",
+      venue: "CROWD & SEATING",
+      details: "Dokumentasi antusiasme dan tawa penonton.",
       flyerUrl: null,
       imageUrl: null,
+      url: null,
       isCustom: false,
     },
     {
-      id: "doc-network",
-      title: "KOLABORASI KOMIKA NASIONAL",
-      badge: "NETWORK",
-      date: "SPECIAL TOURS",
-      venue: "EME NEME YAUWARE",
-      details: "Membawa nama-nama besar stand-up comedy Indonesia untuk tampil langsung menghibur masyarakat Timika.",
+      id: "activity-doc-3",
+      title: "BACKSTAGE GREEN ROOM VIBES",
+      badge: "BEHIND THE SCENE",
+      date: "BEHIND THE SCENE",
+      venue: "GREEN ROOM",
+      details: "Dokumentasi suasana balik layar dan persiapan sebelum panggung.",
       flyerUrl: null,
       imageUrl: null,
-      isCustom: false,
-    },
-    {
-      id: "doc-movement",
-      title: "REGENERASI KOMIKA PAPUA",
-      badge: "MOVEMENT",
-      date: "ANNUAL MOVEMENT",
-      venue: "MIMIKA CULTURAL HUB",
-      details: "Secara konsisten membina dan melahirkan bakat-bakat muda asli Timika untuk berani bersuara.",
-      flyerUrl: null,
-      imageUrl: null,
+      url: null,
       isCustom: false,
     },
   ],
