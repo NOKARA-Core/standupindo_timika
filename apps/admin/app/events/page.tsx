@@ -16,6 +16,9 @@ import {
   Loader2,
   Images,
   Image as ImageIcon,
+  Clock,
+  MapPin,
+  Ticket,
 } from "lucide-react";
 import { EventItem } from "../../src/lib/mock-data";
 import MediaPickerModal from "../../src/components/MediaPickerModal";
@@ -59,38 +62,6 @@ function isEventPassedWIT(dateStr: string, timeStr?: string): boolean {
   }
 }
 
-function getEventTimingBadge(dateStr: string, timeStr?: string, taptapUrl?: string | null) {
-  const isPassed = isEventPassedWIT(dateStr, timeStr);
-  if (isPassed) {
-    return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-700 border border-gray-300 whitespace-nowrap">
-        Passed / Expired
-      </span>
-    );
-  }
-
-  const hasTicket =
-    taptapUrl &&
-    taptapUrl.trim() &&
-    taptapUrl.trim() !== "-" &&
-    taptapUrl.trim() !== "#" &&
-    (taptapUrl.startsWith("http://") || taptapUrl.startsWith("https://"));
-
-  if (!hasTicket) {
-    return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-300 whitespace-nowrap">
-        No Ticket Link
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 whitespace-nowrap">
-      Upcoming
-    </span>
-  );
-}
-
 export default function EventsAdminPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -112,6 +83,11 @@ export default function EventsAdminPage() {
   const [price, setPrice] = useState("");
   const [taptapUrl, setTaptapUrl] = useState("");
   const [status, setStatus] = useState<"PUBLISHED" | "DRAFT" | "TAPTAP LIVE" | "CLOSED">("PUBLISHED");
+  const [flyerUrl, setFlyerUrl] = useState<string>("");
+
+  // Media Picker and upload states
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isUploadingFlyer, setIsUploadingFlyer] = useState(false);
 
   // Load events from Neon DB API
   const fetchEvents = async () => {
@@ -134,29 +110,38 @@ export default function EventsAdminPage() {
   }, []);
 
   const filteredEvents = events.filter((evt) => {
-    const matchStatus = filterStatus === "ALL" || evt.status === filterStatus;
+    const isPassed = isEventPassedWIT(evt.date, evt.time);
+    let matchStatus = true;
+
+    if (filterStatus === "ALL") {
+      matchStatus = true;
+    } else if (filterStatus === "UPCOMING") {
+      matchStatus = !isPassed && evt.status !== "CLOSED";
+    } else if (filterStatus === "EXPIRED") {
+      matchStatus = isPassed;
+    } else if (filterStatus === "CLOSED") {
+      matchStatus = evt.status === "CLOSED";
+    } else {
+      matchStatus = evt.status === filterStatus;
+    }
+
     const matchSearch =
       evt.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       evt.venue.toLowerCase().includes(searchQuery.toLowerCase()) ||
       evt.host.toLowerCase().includes(searchQuery.toLowerCase());
+
     return matchStatus && matchSearch;
   });
-
-  const [flyerUrl, setFlyerUrl] = useState<string>("");
-
-  // Media Picker and upload states
-  const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [isUploadingFlyer, setIsUploadingFlyer] = useState(false);
 
   const openCreateModal = () => {
     setEditingEvent(null);
     setTitle("");
     setType("OPEN MIC");
-    setDate(new Date().toISOString().split("T")[0] || "2026-10-01");
+    setDate("");
     setTime("20:00 WIT");
-    setVenue("Sky Coffee25 Timika");
-    setAddress("Jl. Bhayangkara, Koperapoka, Timika");
-    setHost("RIAN 'THE HAMMER'");
+    setVenue("");
+    setAddress("");
+    setHost("");
     setPrice("FREE ENTRY");
     setTaptapUrl("");
     setStatus("PUBLISHED");
@@ -175,7 +160,7 @@ export default function EventsAdminPage() {
     setHost(evt.host);
     setPrice(evt.price);
     setTaptapUrl(evt.taptapUrl || "");
-    setStatus(evt.status);
+    setStatus(evt.status || "PUBLISHED");
     setFlyerUrl(evt.flyerUrl || "");
     setIsModalOpen(true);
   };
@@ -188,10 +173,12 @@ export default function EventsAdminPage() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("folder", "stup-timika/flyers");
+
       const res = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       });
+
       if (res.ok) {
         const data = await res.json();
         setFlyerUrl(data.url);
@@ -200,7 +187,7 @@ export default function EventsAdminPage() {
       }
     } catch (err) {
       console.error("Upload flyer error:", err);
-      alert("Terjadi kesalahan saat mengunggah flyer.");
+      alert("Terjadi kesalahan saat upload.");
     } finally {
       setIsUploadingFlyer(false);
     }
@@ -210,7 +197,7 @@ export default function EventsAdminPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const payload: Partial<EventItem> = {
+      const payload = {
         id: editingEvent ? editingEvent.id : `evt-${Date.now()}`,
         title,
         type,
@@ -220,10 +207,9 @@ export default function EventsAdminPage() {
         address,
         host,
         price,
-        taptapUrl,
+        taptapUrl: taptapUrl || "-",
         status,
-        flyerUrl: flyerUrl.trim() || undefined,
-        capacity: type === "OPEN MIC" ? 60 : 250,
+        flyerUrl: flyerUrl || undefined,
       };
 
       const res = await fetch("/api/events", {
@@ -251,7 +237,6 @@ export default function EventsAdminPage() {
     id: string,
     nextStatus: "PUBLISHED" | "DRAFT" | "TAPTAP LIVE" | "CLOSED"
   ) => {
-    // Optimistic update
     setEvents((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: nextStatus } : item))
     );
@@ -262,9 +247,7 @@ export default function EventsAdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, status: nextStatus }),
       });
-      if (!res.ok) {
-        await fetchEvents();
-      }
+      if (!res.ok) await fetchEvents();
     } catch {
       await fetchEvents();
     }
@@ -289,161 +272,223 @@ export default function EventsAdminPage() {
     }
   };
 
+  const renderTimingBadge = (dateStr: string, timeStr?: string, taptapUrl?: string | null) => {
+    const isPassed = isEventPassedWIT(dateStr, timeStr);
+    if (isPassed) {
+      return (
+        <span className="inline-block px-2 py-0.5 text-[10px] font-mono font-black uppercase bg-zinc-300 text-black border-2 border-black line-through shadow-[1px_1px_0px_0px_#000]">
+          EXPIRED
+        </span>
+      );
+    }
+
+    const hasTicket =
+      taptapUrl &&
+      taptapUrl.trim() &&
+      taptapUrl.trim() !== "-" &&
+      taptapUrl.trim() !== "#" &&
+      (taptapUrl.startsWith("http://") || taptapUrl.startsWith("https://"));
+
+    if (!hasTicket) {
+      return (
+        <div className="flex items-center gap-1">
+          <span className="inline-block px-2 py-0.5 text-[10px] font-mono font-black uppercase bg-[#22C55E] text-black border-2 border-black shadow-[1px_1px_0px_0px_#000]">
+            UPCOMING
+          </span>
+          <span className="inline-block px-1.5 py-0.5 text-[9px] font-mono font-black uppercase bg-red-500 text-white border border-black rotate-[-2deg]">
+            NO TAPTAP
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <span className="inline-block px-2 py-0.5 text-[10px] font-mono font-black uppercase bg-[#22C55E] text-black border-2 border-black shadow-[1px_1px_0px_0px_#000]">
+        UPCOMING
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* 1. Header Bar */}
+      <div className="bg-white border-4 border-black p-5 shadow-[4px_4px_0px_0px_#000] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-gray-900">Events Management</h2>
-            <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded">
-              NEON DB CONNECTED
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-xl md:text-2xl font-black font-mono tracking-tight uppercase text-black">
+              EVENTS & SCHEDULE MANAGEMENT
+            </h1>
+            <span className="px-2.5 py-1 text-xs font-black font-mono bg-[#FFD700] text-black border-2 border-black shadow-[2px_2px_0px_0px_#000]">
+              {events.length} TOTAL SHOWS
             </span>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Kelola jadwal Open Mic, pertunjukan spesial, dan integrasi tiket TapTap langsung di Neon.tech
+          <p className="text-xs font-mono text-zinc-600 mt-1">
+            Kelola jadwal Open Mic mingguan, special show komika, tiket TapTap, dan arsip pertunjukan di Neon DB
           </p>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={fetchEvents}
-            className="p-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 transition-colors shadow-xs"
+            className="p-2.5 bg-white border-3 border-black text-black hover:bg-zinc-100 shadow-[2px_2px_0px_0px_#000] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
             title="Refresh Data dari DB"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-4 h-4 stroke-[2.5] ${loading ? "animate-spin" : ""}`} />
           </button>
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold tracking-wider transition-colors cursor-pointer shadow-xs"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FF4500] hover:bg-[#E03E00] text-white text-xs font-black font-mono uppercase tracking-wider border-3 border-black shadow-[4px_4px_0px_0px_#000] hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 stroke-[3]" />
             <span>+ CREATE EVENT</span>
           </button>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white border border-gray-200 p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-        {/* Status Filter Buttons */}
-        <div className="flex flex-wrap gap-1.5">
-          {["ALL", "PUBLISHED", "TAPTAP LIVE", "CLOSED", "DRAFT"].map((st) => (
-            <button
-              key={st}
-              type="button"
-              onClick={() => setFilterStatus(st)}
-              className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
-                filterStatus === st
-                  ? "bg-gray-900 text-white"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-600"
-              }`}
-            >
-              {st}
-            </button>
-          ))}
+      {/* 2. Status Filters & Search Bar */}
+      <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_0px_#000] flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        {/* Pill Balok Status Filter Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          {[
+            { id: "ALL", label: "ALL" },
+            { id: "UPCOMING", label: "UPCOMING" },
+            { id: "EXPIRED", label: "EXPIRED" },
+            { id: "CLOSED", label: "CLOSED" },
+            { id: "DRAFT", label: "DRAFT" },
+          ].map((tab) => {
+            const isSelected = filterStatus === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setFilterStatus(tab.id)}
+                className={`px-3.5 py-1.5 text-xs font-mono font-black uppercase tracking-wider border-2 border-black transition-all cursor-pointer ${
+                  isSelected
+                    ? "bg-black text-white shadow-[3px_3px_0px_0px_#FFD700] -translate-x-0.5 -translate-y-0.5"
+                    : "bg-white text-black hover:bg-zinc-100 shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Search Input */}
-        <div className="relative w-full md:w-72">
+        {/* Search Input Box */}
+        <div className="relative w-full lg:w-72">
           <input
             type="text"
-            placeholder="Cari nama acara, venue, host..."
+            placeholder="CARI ACARA, VENUE, HOST..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-gray-50 border border-gray-200 px-3 py-2 pl-9 text-xs text-gray-900 focus:outline-none focus:border-gray-900"
+            className="w-full bg-[#FDFBF7] border-3 border-black px-3.5 py-2 pl-9 text-xs font-mono font-bold text-black uppercase placeholder:text-zinc-400 placeholder:font-bold focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
           />
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search className="w-4 h-4 text-black stroke-[3] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
       </div>
 
-      {/* Events Table */}
-      <div className="bg-white border border-gray-200 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+      {/* 3. Neo-Brutalist Table / Mobile Cards */}
+      <div className="bg-white border-4 border-black shadow-[4px_4px_0px_0px_#000] overflow-hidden">
+        {/* Desktop Table View */}
+        <div className="overflow-x-auto hidden md:block">
+          <table className="w-full text-left border-collapse font-mono">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
-                  Event Title
+              <tr className="bg-black text-white border-b-4 border-black">
+                <th className="px-5 py-3.5 text-xs font-black uppercase tracking-wider">
+                  EVENT TITLE & TYPE
                 </th>
-                <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
-                  Schedule
+                <th className="px-5 py-3.5 text-xs font-black uppercase tracking-wider">
+                  DATE & SCHEDULE
                 </th>
-                <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
-                  Location / Venue
+                <th className="px-5 py-3.5 text-xs font-black uppercase tracking-wider">
+                  VENUE & LOCATION
                 </th>
-                <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
-                  TapTap Link
+                <th className="px-5 py-3.5 text-xs font-black uppercase tracking-wider">
+                  TICKET / TAPTAP
                 </th>
-                <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
-                  Status (Click to Toggle)
+                <th className="px-5 py-3.5 text-xs font-black uppercase tracking-wider">
+                  STATUS ACARA
                 </th>
-                <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold text-right">
-                  Actions
+                <th className="px-5 py-3.5 text-xs font-black uppercase tracking-wider text-right">
+                  ACTIONS
                 </th>
               </tr>
             </thead>
             <tbody>
               {loading && events.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-xs text-gray-500">
-                    <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-gray-400" />
-                    <span>Memuat data acara dari Neon PostgreSQL...</span>
+                  <td colSpan={6} className="px-6 py-12 text-center text-xs text-zinc-600 font-mono">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-black" />
+                    <span className="font-bold">MEMUAT JADWAL ACARA DARI NEON POSTGRESQL...</span>
                   </td>
                 </tr>
               ) : filteredEvents.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-xs text-gray-500">
-                    Tidak ada jadwal acara yang sesuai filter.
+                  <td colSpan={6} className="px-6 py-8 text-center text-xs text-zinc-600 font-mono font-bold">
+                    TIDAK ADA JADWAL ACARA YANG SESUAI FILTER.
                   </td>
                 </tr>
               ) : (
                 filteredEvents.map((evt) => (
                   <tr
                     key={evt.id}
-                    className="border-b border-gray-200 hover:bg-gray-50/75 transition-colors"
+                    className="border-b-2 border-black hover:bg-yellow-50 transition-colors"
                   >
-                    <td className="px-6 py-4">
-                      <div className="font-semibold text-sm text-gray-900">
+                    {/* Title & Type */}
+                    <td className="px-5 py-3.5">
+                      <div className="font-black text-sm text-black tracking-tight uppercase">
                         {evt.title}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        <span className="font-medium text-gray-700">{evt.type}</span> • Host: {evt.host}
+                      <div className="text-xs text-zinc-600 font-semibold mt-0.5 flex items-center gap-2">
+                        <span className="bg-[#FFD700] text-black px-1.5 py-0.2 border border-black font-black text-[10px]">
+                          {evt.type}
+                        </span>
+                        <span>HOST: {evt.host}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-gray-900">
+
+                    {/* Schedule */}
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-black text-black">
                           {evt.date}
                         </span>
-                        {getEventTimingBadge(evt.date, evt.time, evt.taptapUrl)}
+                        {renderTimingBadge(evt.date, evt.time, evt.taptapUrl)}
                       </div>
-                      <div className="text-xs text-gray-500">{evt.time}</div>
+                      <div className="text-xs text-zinc-500 font-bold mt-0.5">{evt.time}</div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="text-xs font-semibold text-gray-900">
+
+                    {/* Venue */}
+                    <td className="px-5 py-3.5 max-w-xs">
+                      <div className="text-xs font-black text-black uppercase">
                         {evt.venue}
                       </div>
-                      <div className="text-xs text-gray-500 truncate max-w-xs">
+                      <div className="text-[11px] text-zinc-600 font-medium truncate">
                         {evt.address}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      {evt.taptapUrl ? (
+
+                    {/* TapTap / Ticket */}
+                    <td className="px-5 py-3.5">
+                      {evt.taptapUrl && evt.taptapUrl !== "-" && evt.taptapUrl !== "#" ? (
                         <a
                           href={evt.taptapUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline font-medium"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FFD700] text-black border border-black text-xs font-black uppercase hover:bg-black hover:text-[#FFD700] shadow-[1px_1px_0px_0px_#000] transition-colors"
                         >
-                          <span>TapTap Live</span>
-                          <ExternalLink className="w-3 h-3" />
+                          <span>TAPTAP LIVE</span>
+                          <ExternalLink className="w-3 h-3 stroke-[3]" />
                         </a>
                       ) : (
-                        <span className="text-xs text-gray-400">Belum diset</span>
+                        <span className="text-xs text-zinc-400 font-bold">NO TICKET URL</span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+
+                    {/* Status Dropdown */}
+                    <td className="px-5 py-3.5">
                       <select
                         value={evt.status}
                         onChange={(e) =>
@@ -452,39 +497,44 @@ export default function EventsAdminPage() {
                             e.target.value as "PUBLISHED" | "DRAFT" | "TAPTAP LIVE" | "CLOSED"
                           )
                         }
-                        className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wider border rounded cursor-pointer focus:outline-none transition-colors ${
+                        className={`px-2.5 py-1 text-xs font-mono font-black uppercase border-2 border-black shadow-[2px_2px_0px_0px_#000] cursor-pointer focus:outline-none transition-colors ${
                           evt.status === "CLOSED" || evt.status?.toLowerCase() === "closed"
-                            ? "bg-gray-100 text-gray-700 border-gray-300"
+                            ? "bg-zinc-300 text-black line-through"
                             : evt.status === "TAPTAP LIVE"
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                            ? "bg-[#22C55E] text-black"
                             : evt.status === "PUBLISHED"
-                            ? "bg-blue-50 text-blue-700 border-blue-300"
-                            : "bg-amber-50 text-amber-700 border-amber-300"
+                            ? "bg-[#FFD700] text-black"
+                            : "bg-white text-zinc-600"
                         }`}
                       >
-                        <option value="PUBLISHED">Published</option>
-                        <option value="TAPTAP LIVE">TapTap Live</option>
-                        <option value="CLOSED">Closed / Selesai</option>
-                        <option value="DRAFT">Draft</option>
+                        <option value="PUBLISHED">PUBLISHED</option>
+                        <option value="TAPTAP LIVE">TAPTAP LIVE</option>
+                        <option value="CLOSED">CLOSED</option>
+                        <option value="DRAFT">DRAFT</option>
                       </select>
                     </td>
-                    <td className="px-6 py-4 text-right">
+
+                    {/* Actions */}
+                    <td className="px-5 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {/* Edit Button */}
                         <button
                           type="button"
                           onClick={() => openEditModal(evt)}
-                          className="px-2.5 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 transition-colors flex items-center gap-1 cursor-pointer"
+                          className="p-1.5 bg-white hover:bg-[#FEF08A] text-black border-2 border-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+                          title="Edit Acara"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
-                          <span>Edit</span>
+                          <Edit2 className="w-3.5 h-3.5 stroke-[2.5]" />
                         </button>
+
+                        {/* Delete Button */}
                         <button
                           type="button"
                           onClick={() => setDeleteEventId(evt.id)}
-                          className="px-2.5 py-1 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 transition-colors flex items-center gap-1 cursor-pointer"
+                          className="p-1.5 bg-red-500 hover:bg-red-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+                          title="Hapus Acara"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Delete</span>
+                          <Trash2 className="w-3.5 h-3.5 stroke-[2.5]" />
                         </button>
                       </div>
                     </td>
@@ -494,59 +544,142 @@ export default function EventsAdminPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Responsive Cards View */}
+        <div className="md:hidden divide-y-4 divide-black font-mono">
+          {loading && events.length === 0 ? (
+            <div className="p-8 text-center text-xs font-bold text-zinc-600">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-black" />
+              MEMUAT DATA ACARA...
+            </div>
+          ) : filteredEvents.length === 0 ? (
+            <div className="p-6 text-center text-xs font-bold text-zinc-600">
+              TIDAK ADA ACARA YANG SESUAI FILTER.
+            </div>
+          ) : (
+            filteredEvents.map((evt) => (
+              <div key={evt.id} className="p-4 bg-white space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="bg-[#FFD700] text-black px-1.5 py-0.2 border border-black font-black text-[10px]">
+                      {evt.type}
+                    </span>
+                    <h3 className="font-black text-base text-black uppercase mt-1">
+                      {evt.title}
+                    </h3>
+                  </div>
+                  {renderTimingBadge(evt.date, evt.time, evt.taptapUrl)}
+                </div>
+
+                <div className="text-xs space-y-1 text-zinc-800">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Clock className="w-3.5 h-3.5 text-[#FF4500]" />
+                    <span>{evt.date} • {evt.time}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 font-medium text-zinc-600">
+                    <MapPin className="w-3.5 h-3.5 text-black" />
+                    <span>{evt.venue} ({evt.address})</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Ticket className="w-3.5 h-3.5 text-black" />
+                    <span>{evt.price}</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t-2 border-black flex items-center justify-between gap-2">
+                  <select
+                    value={evt.status}
+                    onChange={(e) =>
+                      handleStatusChange(
+                        evt.id,
+                        e.target.value as "PUBLISHED" | "DRAFT" | "TAPTAP LIVE" | "CLOSED"
+                      )
+                    }
+                    className="px-2 py-1 text-xs font-mono font-black uppercase border-2 border-black shadow-[1.5px_1.5px_0px_0px_#000]"
+                  >
+                    <option value="PUBLISHED">PUBLISHED</option>
+                    <option value="TAPTAP LIVE">TAPTAP LIVE</option>
+                    <option value="CLOSED">CLOSED</option>
+                    <option value="DRAFT">DRAFT</option>
+                  </select>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(evt)}
+                      className="px-3 py-1 bg-white hover:bg-yellow-200 text-black text-xs font-black border-2 border-black shadow-[2px_2px_0px_0px_#000]"
+                    >
+                      EDIT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteEventId(evt.id)}
+                      className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-black border-2 border-black shadow-[2px_2px_0px_0px_#000]"
+                    >
+                      DEL
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
-      {/* Modal Form Tambah/Edit Show */}
+      {/* 4. Pure Neo-Brutalism Form Modal (Add / Edit Event) */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-gray-200 max-w-lg w-full p-6 shadow-xl space-y-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-                {editingEvent ? "Edit Show" : "+ CREATE NEW EVENT"}
-              </h3>
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-xs font-mono">
+          <div className="bg-white border-4 border-black p-6 max-w-lg w-full shadow-[8px_8px_0px_0px_#000] max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="bg-[#FF4500] text-white border-3 border-black p-3.5 mb-5 flex items-center justify-between shadow-[3px_3px_0px_0px_#000]">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 stroke-[3]" />
+                <h3 className="text-sm md:text-base font-black uppercase tracking-wider">
+                  {editingEvent ? "EDIT EVENT JADWAL" : "+ CREATE NEW EVENT"}
+                </h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-1.5 bg-black text-white hover:bg-white hover:text-black border-2 border-black transition-colors cursor-pointer"
+                aria-label="Tutup"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 stroke-[3]" />
               </button>
             </div>
 
             <form onSubmit={handleSave} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                  Nama Acara / Judul Show
+                <label className="block text-xs font-black text-black uppercase mb-1">
+                  JUDUL ACARA *
                 </label>
                 <input
                   type="text"
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Misal: THE GRIND VOL. 43"
-                  className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                  placeholder="MISAL: THE GRIND VOL. 43"
+                  className="w-full bg-[#FDFBF7] border-2 border-black p-2.5 text-xs font-mono font-bold uppercase focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    Tipe Acara
+                  <label className="block text-xs font-black text-black uppercase mb-1">
+                    TIPE PERTUNJUKAN
                   </label>
                   <select
                     value={type}
-                    onChange={(e) =>
-                      setType(e.target.value as "OPEN MIC" | "SPECIAL SHOW")
-                    }
-                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                    onChange={(e) => setType(e.target.value as "OPEN MIC" | "SPECIAL SHOW")}
+                    className="w-full bg-white border-2 border-black p-2.5 text-xs font-mono font-bold uppercase focus:outline-none focus:shadow-[3px_3px_0px_0px_#000] cursor-pointer"
                   >
                     <option value="OPEN MIC">OPEN MIC</option>
                     <option value="SPECIAL SHOW">SPECIAL SHOW</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    Status
+                  <label className="block text-xs font-black text-black uppercase mb-1">
+                    STATUS PUBLIKASI
                   </label>
                   <select
                     value={status}
@@ -555,32 +688,32 @@ export default function EventsAdminPage() {
                         e.target.value as "PUBLISHED" | "DRAFT" | "TAPTAP LIVE" | "CLOSED"
                       )
                     }
-                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                    className="w-full bg-white border-2 border-black p-2.5 text-xs font-mono font-bold uppercase focus:outline-none focus:shadow-[3px_3px_0px_0px_#000] cursor-pointer"
                   >
                     <option value="PUBLISHED">PUBLISHED (Aktif)</option>
-                    <option value="TAPTAP LIVE">TAPTAP LIVE (Tiket Live)</option>
+                    <option value="TAPTAP LIVE">TAPTAP LIVE (Tiket)</option>
                     <option value="CLOSED">CLOSED / SELESAI</option>
-                    <option value="DRAFT">DRAFT (Disembunyikan)</option>
+                    <option value="DRAFT">DRAFT (Sembunyi)</option>
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    Tanggal
+                  <label className="block text-xs font-black text-black uppercase mb-1">
+                    TANGGAL ACARA *
                   </label>
                   <input
                     type="date"
                     required
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                    className="w-full bg-[#FDFBF7] border-2 border-black p-2.5 text-xs font-mono font-bold focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    Waktu / Jam
+                  <label className="block text-xs font-black text-black uppercase mb-1">
+                    WAKTU / JAM *
                   </label>
                   <input
                     type="text"
@@ -588,15 +721,15 @@ export default function EventsAdminPage() {
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
                     placeholder="20:00 WIT"
-                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                    className="w-full bg-[#FDFBF7] border-2 border-black p-2.5 text-xs font-mono font-bold focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    Nama Venue
+                  <label className="block text-xs font-black text-black uppercase mb-1">
+                    NAMA VENUE *
                   </label>
                   <input
                     type="text"
@@ -604,12 +737,12 @@ export default function EventsAdminPage() {
                     value={venue}
                     onChange={(e) => setVenue(e.target.value)}
                     placeholder="SKY COFFEE25"
-                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                    className="w-full bg-[#FDFBF7] border-2 border-black p-2.5 text-xs font-mono font-bold uppercase focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    Host / MC
+                  <label className="block text-xs font-black text-black uppercase mb-1">
+                    HOST / MC *
                   </label>
                   <input
                     type="text"
@@ -617,29 +750,29 @@ export default function EventsAdminPage() {
                     value={host}
                     onChange={(e) => setHost(e.target.value)}
                     placeholder="RIAN 'THE HAMMER'"
-                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                    className="w-full bg-[#FDFBF7] border-2 border-black p-2.5 text-xs font-mono font-bold uppercase focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                  Alamat Lengkap Venue
+                <label className="block text-xs font-black text-black uppercase mb-1">
+                  ALAMAT LENGKAP VENUE *
                 </label>
                 <input
                   type="text"
                   required
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Jl. Bhayangkara, Koperapoka, Timika"
-                  className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                  placeholder="Jl. Bhayangkara, Timika"
+                  className="w-full bg-[#FDFBF7] border-2 border-black p-2.5 text-xs font-mono font-bold focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    Harga Tiket
+                  <label className="block text-xs font-black text-black uppercase mb-1">
+                    HARGA TIKET / HTM
                   </label>
                   <input
                     type="text"
@@ -647,34 +780,31 @@ export default function EventsAdminPage() {
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     placeholder="FREE ENTRY / Rp 50.000"
-                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                    className="w-full bg-[#FDFBF7] border-2 border-black p-2.5 text-xs font-mono font-bold focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    Tautan TapTap / RSVP (Opsional)
+                  <label className="block text-xs font-black text-black uppercase mb-1">
+                    LINK TIKET TAPTAP / RSVP
                   </label>
                   <input
                     type="text"
                     value={taptapUrl}
                     onChange={(e) => setTaptapUrl(e.target.value)}
-                    placeholder="https://taptap.id/e/... (Kosongkan jika belum ada)"
-                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                    placeholder="https://taptap.id/e/..."
+                    className="w-full bg-[#FDFBF7] border-2 border-black p-2.5 text-xs font-mono font-bold focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                   />
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    * Kosongkan atau beri strip (-) jika tiket belum rilis. Di web akan otomatis tampil badge merah &quot;COMING SOON&quot;.
-                  </p>
                 </div>
               </div>
 
-              {/* Flyer / Poster Image (Single Source of Truth) */}
-              <div className="border-2 border-black p-3 bg-gray-50 space-y-2">
-                <label className="block text-xs font-bold text-gray-900 uppercase font-['Space_Mono',monospace]">
-                  Flyer / Poster Acara (Cloudinary CDN)
+              {/* Flyer Asset Box */}
+              <div className="border-3 border-black p-3.5 bg-[#FFFDF9] space-y-2 shadow-[2px_2px_0px_0px_#000]">
+                <label className="block text-xs font-black text-black uppercase">
+                  POSTER / FLYER ACARA
                 </label>
 
                 <div className="flex items-center gap-3">
-                  <div className="relative w-16 h-20 bg-white border-2 border-black overflow-hidden shrink-0 flex items-center justify-center">
+                  <div className="relative w-16 h-20 bg-white border-2 border-black overflow-hidden shrink-0 flex items-center justify-center shadow-[1px_1px_0px_0px_#000]">
                     {flyerUrl ? (
                       <Image
                         src={flyerUrl}
@@ -683,28 +813,28 @@ export default function EventsAdminPage() {
                         className="object-cover"
                       />
                     ) : (
-                      <ImageIcon className="w-6 h-6 text-gray-300" />
+                      <ImageIcon className="w-6 h-6 text-zinc-400" />
                     )}
                   </div>
 
-                  <div className="flex-1 flex flex-col gap-1.5">
+                  <div className="flex-1 flex flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={() => setIsPickerOpen(true)}
-                        className="px-2.5 py-1.5 bg-[#FFF8F6] hover:bg-yellow-200 text-gray-900 border border-black text-xs font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors shadow-[2px_2px_0px_0px_#000]"
+                        className="px-2.5 py-1.5 bg-[#FFD700] hover:bg-[#FFE55C] text-black border-2 border-black text-[11px] font-black uppercase tracking-wider flex items-center gap-1 shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
                       >
-                        <Images className="w-3.5 h-3.5 text-[#FF4500]" />
-                        <span>Pilih Dari Storage</span>
+                        <Images className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>PILIH STORAGE</span>
                       </button>
 
-                      <label className="px-2.5 py-1.5 bg-black hover:bg-[#FF4500] text-white border border-black text-xs font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors shadow-[2px_2px_0px_0px_#000]">
+                      <label className="px-2.5 py-1.5 bg-black hover:bg-[#FF4500] text-white border-2 border-black text-[11px] font-black uppercase tracking-wider flex items-center gap-1 shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer">
                         {isUploadingFlyer ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
-                          <Upload className="w-3.5 h-3.5" />
+                          <Upload className="w-3.5 h-3.5 stroke-[2.5]" />
                         )}
-                        <span>{isUploadingFlyer ? "Uploading..." : "Upload Baru"}</span>
+                        <span>{isUploadingFlyer ? "UPLOADING..." : "UPLOAD FILE"}</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -718,9 +848,9 @@ export default function EventsAdminPage() {
                         <button
                           type="button"
                           onClick={() => setFlyerUrl("")}
-                          className="px-2 py-1 text-xs text-red-600 hover:text-white hover:bg-red-600 border border-transparent hover:border-black transition-colors"
+                          className="px-2 py-1 text-[11px] font-black text-red-600 hover:bg-red-500 hover:text-white border border-black transition-colors"
                         >
-                          Hapus
+                          HAPUS
                         </button>
                       )}
                     </div>
@@ -729,27 +859,28 @@ export default function EventsAdminPage() {
                       type="text"
                       value={flyerUrl}
                       onChange={(e) => setFlyerUrl(e.target.value)}
-                      placeholder="URL Cloudinary atau pilih dari storage..."
-                      className="w-full bg-white border border-gray-300 px-2 py-1 text-[11px] font-mono text-gray-700 focus:outline-none focus:border-black"
+                      placeholder="URL CDN Cloudinary..."
+                      className="w-full bg-white border-2 border-black px-2 py-1 text-[11px] font-mono text-black focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-2">
+              {/* Modal Submit Buttons */}
+              <div className="pt-3 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50 transition-colors"
+                  className="flex-1 py-3 bg-white text-black text-xs font-black uppercase border-3 border-black shadow-[3px_3px_0px_0px_#000] hover:bg-zinc-100 active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                 >
-                  Batal
+                  BATAL
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-gray-900 text-white text-xs font-semibold hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50"
+                  className="flex-2 py-3 bg-[#FF4500] hover:bg-[#E03E00] text-white text-xs font-black uppercase border-3 border-black shadow-[4px_4px_0px_0px_#000] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {isSubmitting ? "Menyimpan ke Neon DB..." : "Simpan Acara"}
+                  {isSubmitting ? "MENYIMPAN KE NEON DB..." : "SAVE DATA"}
                 </button>
               </div>
             </form>
@@ -757,44 +888,44 @@ export default function EventsAdminPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* 5. Pure Neo-Brutalism Delete Confirmation Modal */}
       {deleteEventId && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-red-200 max-w-sm w-full p-6 shadow-xl space-y-4">
-            <div className="flex items-center gap-3 text-red-600">
-              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5" />
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-xs font-mono">
+          <div className="bg-white border-4 border-black max-w-sm w-full p-6 shadow-[8px_8px_0px_0px_#000] space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-red-500 border-3 border-black text-white flex items-center justify-center shrink-0 shadow-[2px_2px_0px_0px_#000]">
+                <AlertTriangle className="w-6 h-6 stroke-[3]" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-gray-900">Konfirmasi Hapus</h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Tindakan ini permanen dan akan menghapus record dari Neon DB.
+                <h3 className="text-sm font-black uppercase text-black">HAPUS ACARA INI?</h3>
+                <p className="text-xs text-zinc-600 font-bold mt-0.5">
+                  Jadwal acara akan dihapus permanen dari tabel events Neon PostgreSQL.
                 </p>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+            <div className="pt-4 border-t-3 border-black flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setDeleteEventId(null)}
-                className="px-3 py-1.5 border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50 transition-colors"
+                className="flex-1 py-2.5 bg-white text-black text-xs font-black uppercase border-3 border-black shadow-[2px_2px_0px_0px_#000] hover:bg-zinc-100 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
               >
-                Batal
+                BATAL
               </button>
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={confirmDelete}
-                className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase border-3 border-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all cursor-pointer disabled:opacity-50"
               >
-                {isSubmitting ? "Menghapus..." : "Hapus Sekarang"}
+                {isSubmitting ? "MENGHAPUS..." : "HAPUS SEKARANG"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Reusable Media Storage Picker Modal (Anti-Duplication) */}
+      {/* Media Picker Modal */}
       <MediaPickerModal
         isOpen={isPickerOpen}
         onClose={() => setIsPickerOpen(false)}

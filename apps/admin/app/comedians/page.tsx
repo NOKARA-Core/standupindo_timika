@@ -19,6 +19,7 @@ import {
   Images,
   Star,
   Image as ImageIcon,
+  Sparkles,
 } from "lucide-react";
 import { ComedianItem } from "../../src/lib/mock-data";
 import MediaPickerModal from "../../src/components/MediaPickerModal";
@@ -27,6 +28,7 @@ export default function ComediansAdminPage() {
   const [comedians, setComedians] = useState<ComedianItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStyleFilter, setSelectedStyleFilter] = useState("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingComedian, setEditingComedian] = useState<ComedianItem | null>(null);
   const [deleteComedianId, setDeleteComedianId] = useState<string | null>(null);
@@ -72,16 +74,20 @@ export default function ComediansAdminPage() {
     fetchComedians();
   }, []);
 
-  const filteredComedians = comedians.filter(
-    (c) =>
+  const filteredComedians = comedians.filter((c) => {
+    const matchSearch =
       c.stageName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.realName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.comedyStyle.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      c.comedyStyle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.punchline && c.punchline.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchStyle =
+      selectedStyleFilter === "ALL" ||
+      c.comedyStyle.toLowerCase() === selectedStyleFilter.toLowerCase();
+    return matchSearch && matchStyle;
+  });
 
   const toggleStatus = async (c: ComedianItem) => {
     const nextActive = !c.isActive;
-    // Optimistic UI update
     setComedians((prev) =>
       prev.map((item) =>
         item.id === c.id ? { ...item, isActive: nextActive } : item
@@ -93,6 +99,35 @@ export default function ComediansAdminPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: c.id, isActive: nextActive }),
+      });
+      if (!res.ok) await fetchComedians();
+    } catch {
+      await fetchComedians();
+    }
+  };
+
+  const toggleFeatured = async (c: ComedianItem) => {
+    const nextFeatured = !c.isFeaturedLineup;
+    const currentFeaturedCount = comedians.filter((item) => item.isFeaturedLineup).length;
+    const nextOrder = nextFeatured ? currentFeaturedCount + 1 : 0;
+
+    setComedians((prev) =>
+      prev.map((item) =>
+        item.id === c.id
+          ? { ...item, isFeaturedLineup: nextFeatured, lineupOrder: nextOrder }
+          : item
+      )
+    );
+
+    try {
+      const res = await fetch("/api/comedians", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: c.id,
+          isFeaturedLineup: nextFeatured,
+          lineupOrder: nextOrder,
+        }),
       });
       if (!res.ok) await fetchComedians();
     } catch {
@@ -244,7 +279,6 @@ export default function ComediansAdminPage() {
     }
   };
 
-  // Replace Photo action directly from table row
   const handleQuickPhotoUpload = async (
     comedianId: string,
     e: React.ChangeEvent<HTMLInputElement>
@@ -266,7 +300,6 @@ export default function ComediansAdminPage() {
       if (!resUpload.ok) throw new Error("Upload failed");
       const uploadData = await resUpload.json();
 
-      // Update DB with new avatar URL
       const resPatch = await fetch("/api/comedians", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -288,240 +321,288 @@ export default function ComediansAdminPage() {
     }
   };
 
+  const getStyleColor = (style: string) => {
+    switch (style) {
+      case "Observational":
+        return "bg-[#FEF08A] text-black"; // Yellow pastel
+      case "Storytelling":
+        return "bg-[#E0E7FF] text-black"; // Indigo pastel
+      case "Dark Comedy":
+        return "bg-[#FED7AA] text-black"; // Orange pastel
+      case "Absurd":
+        return "bg-[#FBCFE8] text-black"; // Pink pastel
+      default:
+        return "bg-zinc-200 text-black";
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* 1. Header Bar */}
+      <div className="bg-white border-4 border-black p-5 shadow-[4px_4px_0px_0px_#000] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-gray-900">
-              Comedians Roster Directory
-            </h2>
-            <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded">
-              NEON DB CONNECTED
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-xl md:text-2xl font-black font-mono tracking-tight uppercase text-black">
+              COMEDIANS ROSTER DIRECTORY
+            </h1>
+            <span className="px-2.5 py-1 text-xs font-black font-mono bg-[#FFD700] text-black border-2 border-black shadow-[2px_2px_0px_0px_#000]">
+              {comedians.length} TOTAL TALENT
             </span>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Data komika resmi StandUp INDO Timika, punchline, dan status visibilitas web langsung dari Neon DB
+          <p className="text-xs font-mono text-zinc-600 mt-1">
+            Database profil panggung, punchline khas, jam terbang, dan featured lineup StandUp INDO Timika
           </p>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={fetchComedians}
-            className="p-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 transition-colors shadow-xs"
+            className="p-2.5 bg-white border-3 border-black text-black hover:bg-zinc-100 shadow-[2px_2px_0px_0px_#000] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
             title="Refresh Data dari DB"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-4 h-4 stroke-[2.5] ${loading ? "animate-spin" : ""}`} />
           </button>
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold tracking-wider transition-colors cursor-pointer shadow-xs"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FFD700] hover:bg-[#FFE55C] text-black text-xs font-black font-mono uppercase tracking-wider border-3 border-black shadow-[4px_4px_0px_0px_#000] hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 stroke-[3]" />
             <span>+ ADD COMEDIAN</span>
           </button>
         </div>
       </div>
 
-      {/* Search Input Bar */}
-      <div className="bg-white border border-gray-200 p-4 shadow-xs flex items-center justify-between gap-4">
-        <div className="relative w-full sm:w-80">
+      {/* 2. Search & Filter Bar */}
+      <div className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_0px_#000] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        {/* Search Box */}
+        <div className="relative w-full md:w-80">
           <input
             type="text"
-            placeholder="Cari nama panggung, nama asli, gaya..."
+            placeholder="CARI NAMA, PUNCHLINE, GENRE..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-gray-50 border border-gray-200 px-3 py-2 pl-9 text-xs text-gray-900 focus:outline-none focus:border-gray-900"
+            className="w-full bg-[#FDFBF7] border-3 border-black px-3.5 py-2.5 pl-10 text-xs font-mono font-bold text-black uppercase placeholder:text-zinc-400 placeholder:font-bold focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
           />
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search className="w-4 h-4 text-black stroke-[3] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
-        <span className="text-xs text-gray-500 font-medium">
-          {filteredComedians.length} Komika Terdaftar
-        </span>
+
+        {/* Genre Filter & Count */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black font-mono uppercase text-black hidden sm:inline">
+              STYLE:
+            </span>
+            <select
+              value={selectedStyleFilter}
+              onChange={(e) => setSelectedStyleFilter(e.target.value)}
+              className="bg-white border-3 border-black px-3 py-2 text-xs font-mono font-bold uppercase shadow-[3px_3px_0px_0px_#000] focus:outline-none cursor-pointer"
+            >
+              <option value="ALL">SEMUA GENRE</option>
+              <option value="Observational">Observational</option>
+              <option value="Storytelling">Storytelling</option>
+              <option value="Dark Comedy">Dark Comedy</option>
+              <option value="Absurd">Absurd</option>
+            </select>
+          </div>
+
+          <span className="text-xs font-mono font-bold bg-black text-white px-2.5 py-1.5 border-2 border-black">
+            {filteredComedians.length} DITEMUKAN
+          </span>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-gray-200 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+      {/* 3. Table / Responsive Card View */}
+      <div className="bg-white border-4 border-black shadow-[4px_4px_0px_0px_#000] overflow-hidden">
+        {/* Desktop Table View */}
+        <div className="overflow-x-auto hidden md:block">
+          <table className="w-full text-left border-collapse font-mono">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
-                  Talent Profile
+              <tr className="bg-black text-white border-b-4 border-black">
+                <th className="px-5 py-3.5 text-xs font-black uppercase tracking-wider">
+                  TALENT PROFILE
                 </th>
-                <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
-                  Style
+                <th className="px-5 py-3.5 text-xs font-black uppercase tracking-wider">
+                  COMEDY STYLE
                 </th>
-                <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
-                  Punchline Signature
+                <th className="px-5 py-3.5 text-xs font-black uppercase tracking-wider">
+                  PUNCHLINE SIGNATURE
                 </th>
-                <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
-                  Featured Lineup
+                <th className="px-5 py-3.5 text-xs font-black uppercase tracking-wider text-center">
+                  HOMEPAGE LINEUP
                 </th>
-                <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
-                  Open Mic Sets
+                <th className="px-5 py-3.5 text-xs font-black uppercase tracking-wider text-center">
+                  TOTAL SHOWS
                 </th>
-                <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold">
-                  Visibility (Click to Toggle)
+                <th className="px-5 py-3.5 text-xs font-black uppercase tracking-wider text-center">
+                  WEB VISIBILITY
                 </th>
-                <th className="px-6 py-3.5 text-xs text-gray-500 uppercase font-semibold text-right">
-                  Actions
+                <th className="px-5 py-3.5 text-xs font-black uppercase tracking-wider text-right">
+                  ACTIONS
                 </th>
               </tr>
             </thead>
             <tbody>
               {loading && comedians.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-xs text-gray-500">
-                    <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-gray-400" />
-                    <span>Memuat daftar komika dari Neon PostgreSQL...</span>
+                  <td colSpan={7} className="px-6 py-12 text-center text-xs text-zinc-600 font-mono">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-black" />
+                    <span className="font-bold">MEMUAT DAFTAR KOMIKA DARI NEON POSTGRESQL...</span>
                   </td>
                 </tr>
               ) : filteredComedians.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-xs text-gray-500">
-                    Tidak ada komika yang cocok dengan pencarian.
+                  <td colSpan={7} className="px-6 py-8 text-center text-xs text-zinc-600 font-mono font-bold">
+                    TIDAK ADA KOMIKA YANG SESUAI FILTER PENCARIAN.
                   </td>
                 </tr>
               ) : (
                 filteredComedians.map((c) => (
                   <tr
                     key={c.id}
-                    className="border-b border-gray-200 hover:bg-gray-50/75 transition-colors"
+                    className="border-b-2 border-black hover:bg-[#FFFDF9] transition-colors"
                   >
-                    <td className="px-6 py-4">
+                    {/* Talent Profile */}
+                    <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="relative w-10 h-10 rounded-full bg-gray-100 border border-gray-300 overflow-hidden shrink-0 flex items-center justify-center text-gray-400 font-bold text-xs">
+                        <div className="relative w-12 h-12 bg-zinc-100 border-3 border-black shrink-0 overflow-hidden shadow-[2px_2px_0px_0px_#000]">
                           {c.avatarUrl ? (
                             <Image
                               src={c.avatarUrl}
                               alt={c.stageName}
                               fill
+                              sizes="48px"
                               className="object-cover"
                             />
                           ) : (
-                            c.stageName.charAt(0).toUpperCase()
+                            <div className="w-full h-full flex items-center justify-center bg-yellow-100 font-black text-xs text-black">
+                              {c.stageName.slice(0, 2).toUpperCase()}
+                            </div>
                           )}
                         </div>
-                        <div>
-                          <div className="font-bold text-sm text-gray-900">
-                            {c.stageName}
+                        <div className="min-w-0">
+                          <div className="font-black text-sm text-black tracking-tight flex items-center gap-2">
+                            <span>{c.stageName}</span>
+                            {c.isFeaturedLineup && (
+                              <span className="text-[10px] bg-[#FFD700] text-black px-1.5 py-0.2 border border-black font-black">
+                                #{c.lineupOrder}
+                              </span>
+                            )}
                           </div>
-                          <div className="text-xs text-gray-500">{c.realName}</div>
-                          <div className="text-[11px] text-gray-400 flex items-center gap-1 mt-0.5">
-                            <Phone className="w-3 h-3" />
-                            <span>{c.phone}</span>
+                          <div className="text-[11px] text-zinc-600 font-medium truncate">
+                            {c.realName}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-block px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+
+                    {/* Style Badge */}
+                    <td className="px-5 py-3.5">
+                      <span
+                        className={`inline-block px-2.5 py-1 text-[11px] font-black uppercase border-2 border-black rotate-[-1deg] shadow-[1.5px_1.5px_0px_0px_#000] ${getStyleColor(
+                          c.comedyStyle
+                        )}`}
+                      >
                         {c.comedyStyle}
                       </span>
                     </td>
-                    <td className="px-6 py-4 max-w-sm">
-                      <p className="text-xs text-gray-600 line-clamp-2 italic">
-                        &quot;{c.punchline}&quot;
-                      </p>
+
+                    {/* Punchline */}
+                    <td className="px-5 py-3.5 max-w-xs">
+                      <div className="text-xs text-zinc-800 italic font-medium truncate bg-zinc-50 border border-black/30 px-2 py-1">
+                        &ldquo;{c.punchline || "Belum ada punchline"}&rdquo;
+                      </div>
                     </td>
-                    <td className="px-6 py-4">
-                      {c.isFeaturedLineup ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                          <Star className="w-3.5 h-3.5 text-[#FF4500] fill-[#FF4500]" />
-                          <span>#{c.lineupOrder || 1} LINEUP</span>
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-400 font-mono">-</span>
-                      )}
+
+                    {/* Featured Lineup Toggle Switch */}
+                    <td className="px-5 py-3.5 text-center">
+                      <button
+                        type="button"
+                        onClick={() => toggleFeatured(c)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-black uppercase border-2 border-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer ${
+                          c.isFeaturedLineup
+                            ? "bg-[#FFD700] text-black"
+                            : "bg-white text-zinc-500 hover:text-black"
+                        }`}
+                        title="Klik untuk ubah status Homepage Featured Lineup"
+                      >
+                        <Star
+                          className={`w-3.5 h-3.5 ${
+                            c.isFeaturedLineup ? "fill-black text-black" : "text-zinc-400"
+                          }`}
+                        />
+                        <span>{c.isFeaturedLineup ? `SLOT #${c.lineupOrder}` : "OFF"}</span>
+                      </button>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs font-bold text-gray-900">
-                        {c.totalOpenMic} Sets
+
+                    {/* Total Shows Digital Counter */}
+                    <td className="px-5 py-3.5 text-center">
+                      <span className="inline-block px-3 py-1 bg-black text-[#FFD700] font-black text-xs border-2 border-black shadow-[1.5px_1.5px_0px_0px_#FF4500]">
+                        {c.totalOpenMic} SETS
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+
+                    {/* Visibility Switch */}
+                    <td className="px-5 py-3.5 text-center">
                       <button
                         type="button"
                         onClick={() => toggleStatus(c)}
-                        title="Klik untuk ubah visibilitas komika di landing page"
-                        className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 border transition-colors cursor-pointer ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-black uppercase border-2 border-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer ${
                           c.isActive
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                            : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
+                            ? "bg-[#22C55E] text-black"
+                            : "bg-zinc-300 text-zinc-700 line-through"
                         }`}
                       >
                         {c.isActive ? (
                           <>
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Active on Web</span>
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            <span>ACTIVE</span>
                           </>
                         ) : (
                           <>
-                            <X className="w-3.5 h-3.5" />
-                            <span>Hidden</span>
+                            <X className="w-3.5 h-3.5 stroke-[3]" />
+                            <span>HIDDEN</span>
                           </>
                         )}
                       </button>
                     </td>
-                    <td className="px-6 py-4 text-right">
+
+                    {/* Actions */}
+                    <td className="px-5 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        {/* Storage Picker (Anti-Duplication) */}
+                        {/* Storage Picker */}
                         <button
                           type="button"
                           onClick={() => {
                             setPickerTargetComedianId(c.id);
                             setIsPickerOpen(true);
                           }}
-                          className="px-2.5 py-1 text-xs font-semibold bg-[#FFF8F6] hover:bg-yellow-200 text-gray-900 border border-black transition-colors flex items-center gap-1 cursor-pointer shadow-[1px_1px_0px_0px_#000]"
-                          title="Pilih foto dari Cloudinary Storage tanpa upload baru"
+                          className="px-2 py-1 text-xs font-black bg-white hover:bg-yellow-200 text-black border-2 border-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center gap-1"
+                          title="Pilih foto dari Cloudinary Storage"
                         >
                           <Images className="w-3.5 h-3.5 text-[#FF4500]" />
-                          <span>Storage</span>
+                          <span className="hidden xl:inline">MEDIA</span>
                         </button>
 
-                        {/* Replace Photo Quick Button */}
-                        <label
-                          className="px-2.5 py-1 text-xs font-semibold bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 transition-colors flex items-center gap-1 cursor-pointer"
-                          title="Upload Baru Foto Komika ke Cloudinary"
-                        >
-                          {uploadingComedianId === c.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-600" />
-                          ) : (
-                            <Camera className="w-3.5 h-3.5 text-gray-500" />
-                          )}
-                          <span>
-                            {uploadingComedianId === c.id ? "Uploading..." : "Upload"}
-                          </span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            disabled={uploadingComedianId === c.id}
-                            onChange={(e) => handleQuickPhotoUpload(c.id, e)}
-                            className="hidden"
-                          />
-                        </label>
-
-                        {/* Edit Profile */}
+                        {/* Edit Button */}
                         <button
                           type="button"
                           onClick={() => openEditModal(c)}
-                          className="px-2.5 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 transition-colors flex items-center gap-1 cursor-pointer"
+                          className="px-2.5 py-1 text-xs font-black bg-white hover:bg-[#FEF08A] text-black border-2 border-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center gap-1"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
-                          <span>Edit</span>
+                          <Edit2 className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>EDIT</span>
                         </button>
 
-                        {/* Delete Comedian */}
+                        {/* Delete Button */}
                         <button
                           type="button"
                           onClick={() => setDeleteComedianId(c.id)}
-                          className="px-2.5 py-1 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 transition-colors flex items-center gap-1 cursor-pointer"
+                          className="px-2.5 py-1 text-xs font-black bg-red-500 hover:bg-red-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center gap-1"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Delete</span>
+                          <Trash2 className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>DEL</span>
                         </button>
                       </div>
                     </td>
@@ -531,59 +612,173 @@ export default function ComediansAdminPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Responsive Cards View */}
+        <div className="md:hidden divide-y-4 divide-black font-mono">
+          {loading && comedians.length === 0 ? (
+            <div className="p-8 text-center text-xs font-bold text-zinc-600">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-black" />
+              MEMUAT DATA KOMIKA...
+            </div>
+          ) : filteredComedians.length === 0 ? (
+            <div className="p-6 text-center text-xs font-bold text-zinc-600">
+              TIDAK ADA KOMIKA YANG SESUAI FILTER.
+            </div>
+          ) : (
+            filteredComedians.map((c) => (
+              <div key={c.id} className="p-4 bg-white space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="relative w-14 h-14 bg-zinc-100 border-3 border-black shrink-0 overflow-hidden shadow-[2px_2px_0px_0px_#000]">
+                    {c.avatarUrl ? (
+                      <Image
+                        src={c.avatarUrl}
+                        alt={c.stageName}
+                        fill
+                        sizes="56px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-yellow-100 font-black text-sm text-black">
+                        {c.stageName.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <h3 className="font-black text-base text-black uppercase truncate">
+                        {c.stageName}
+                      </h3>
+                      <span className="px-2 py-0.5 bg-black text-[#FFD700] text-[10px] font-black border border-black shrink-0">
+                        {c.totalOpenMic} SETS
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-600 font-semibold truncate">{c.realName}</p>
+                    <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                      <span
+                        className={`inline-block px-2 py-0.5 text-[10px] font-black uppercase border border-black shadow-[1px_1px_0px_0px_#000] ${getStyleColor(
+                          c.comedyStyle
+                        )}`}
+                      >
+                        {c.comedyStyle}
+                      </span>
+                      {c.isFeaturedLineup && (
+                        <span className="px-2 py-0.5 text-[10px] font-black uppercase bg-[#FFD700] text-black border border-black">
+                          LINEUP #{c.lineupOrder}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {c.punchline && (
+                  <div className="text-xs text-zinc-800 italic bg-[#FDFBF7] border-2 border-black p-2">
+                    &ldquo;{c.punchline}&rdquo;
+                  </div>
+                )}
+
+                <div className="pt-2 border-t-2 border-black flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleStatus(c)}
+                      className={`px-2 py-1 text-[10px] font-black uppercase border-2 border-black shadow-[2px_2px_0px_0px_#000] ${
+                        c.isActive
+                          ? "bg-[#22C55E] text-black"
+                          : "bg-zinc-300 text-zinc-700 line-through"
+                      }`}
+                    >
+                      {c.isActive ? "ACTIVE" : "HIDDEN"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleFeatured(c)}
+                      className={`px-2 py-1 text-[10px] font-black uppercase border-2 border-black shadow-[2px_2px_0px_0px_#000] ${
+                        c.isFeaturedLineup ? "bg-[#FFD700] text-black" : "bg-white text-zinc-600"
+                      }`}
+                    >
+                      {c.isFeaturedLineup ? "LINEUP ON" : "LINEUP OFF"}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(c)}
+                      className="px-2.5 py-1 bg-white hover:bg-yellow-200 text-black text-xs font-black border-2 border-black shadow-[2px_2px_0px_0px_#000]"
+                    >
+                      EDIT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteComedianId(c.id)}
+                      className="px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-black border-2 border-black shadow-[2px_2px_0px_0px_#000]"
+                    >
+                      DEL
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
-      {/* Modal Form Tambah/Edit Komika */}
+      {/* 4. Pure Neo-Brutalism Modal: Add / Edit Comedian */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-gray-200 max-w-lg w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-                {editingComedian ? "Edit Profile Komika" : "+ ADD COMEDIAN"}
-              </h3>
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white border-4 border-black p-6 max-w-lg w-full shadow-[8px_8px_0px_0px_#000] max-h-[92vh] overflow-y-auto font-mono">
+            {/* Modal Header Bar */}
+            <div className="bg-[#FFD700] border-3 border-black p-3.5 mb-5 flex items-center justify-between shadow-[3px_3px_0px_0px_#000]">
+              <div className="flex items-center gap-2">
+                <Mic2 className="w-5 h-5 text-black stroke-[3]" />
+                <h3 className="text-sm md:text-base font-black uppercase tracking-wider text-black">
+                  {editingComedian ? "EDIT PROFILE KOMIKA" : "+ ADD NEW COMEDIAN"}
+                </h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-1.5 bg-black text-white hover:bg-red-600 border-2 border-black transition-colors cursor-pointer"
+                aria-label="Tutup"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 stroke-[3]" />
               </button>
             </div>
 
             <form onSubmit={handleSave} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    Nama Panggung (Stage Name)
+                  <label className="block text-xs font-black text-black uppercase mb-1">
+                    STAGE NAME *
                   </label>
                   <input
                     type="text"
                     required
                     value={stageName}
                     onChange={(e) => setStageName(e.target.value)}
-                    placeholder="Misal: RIAN"
-                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                    placeholder="MISAL: RIAN"
+                    className="w-full bg-[#FDFBF7] border-2 border-black p-2.5 text-xs font-mono font-bold uppercase focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    Nama Asli
+                  <label className="block text-xs font-black text-black uppercase mb-1">
+                    REAL NAME *
                   </label>
                   <input
                     type="text"
                     required
                     value={realName}
                     onChange={(e) => setRealName(e.target.value)}
-                    placeholder="Misal: Rian S."
-                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                    placeholder="MISAL: RIAN S."
+                    className="w-full bg-[#FDFBF7] border-2 border-black p-2.5 text-xs font-mono font-bold focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    Gaya Komedi
+                  <label className="block text-xs font-black text-black uppercase mb-1">
+                    COMEDY STYLE
                   </label>
                   <select
                     value={comedyStyle}
@@ -596,7 +791,7 @@ export default function ComediansAdminPage() {
                           | "Absurd"
                       )
                     }
-                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                    className="w-full bg-white border-2 border-black p-2.5 text-xs font-mono font-bold uppercase focus:outline-none focus:shadow-[3px_3px_0px_0px_#000] cursor-pointer"
                   >
                     <option value="Observational">Observational</option>
                     <option value="Storytelling">Storytelling</option>
@@ -605,66 +800,66 @@ export default function ComediansAdminPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    Total Open Mic
+                  <label className="block text-xs font-black text-black uppercase mb-1">
+                    TOTAL OPEN MIC SETS
                   </label>
                   <input
                     type="number"
+                    min={0}
                     value={totalOpenMic}
                     onChange={(e) => setTotalOpenMic(Number(e.target.value))}
-                    className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                    className="w-full bg-[#FDFBF7] border-2 border-black p-2.5 text-xs font-mono font-bold focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                  Punchline Signature / Quote Khas
+                <label className="block text-xs font-black text-black uppercase mb-1">
+                  PUNCHLINE SIGNATURE *
                 </label>
                 <input
                   type="text"
                   required
                   value={punchline}
                   onChange={(e) => setPunchline(e.target.value)}
-                  placeholder="Punchline signature yang muncul di web"
-                  className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                  placeholder="Punchline signature yang muncul di web..."
+                  className="w-full bg-[#FDFBF7] border-2 border-black p-2.5 text-xs font-mono font-bold focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                  Bio Singkat
+                <label className="block text-xs font-black text-black uppercase mb-1">
+                  BIO SINGKAT
                 </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  placeholder="Karakter dan keresahan panggung komika..."
-                  className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                  placeholder="Karakter dan materi panggung komika..."
+                  className="w-full bg-[#FDFBF7] border-2 border-black p-2.5 text-xs font-mono font-bold focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                  No. WhatsApp
+                <label className="block text-xs font-black text-black uppercase mb-1">
+                  NO. WHATSAPP (AKTIF)
                 </label>
                 <input
                   type="text"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+628..."
-                  className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
+                  className="w-full bg-[#FDFBF7] border-2 border-black p-2.5 text-xs font-mono font-bold focus:bg-white focus:outline-none focus:shadow-[3px_3px_0px_0px_#000]"
                 />
               </div>
 
-              {/* Photo Asset Management (Anti-Duplication / Single Source of Truth) */}
-              <div className="border-2 border-black p-3 bg-gray-50 space-y-2">
-                <label className="block text-xs font-bold text-gray-900 uppercase font-['Space_Mono',monospace]">
-                  Foto Headshot Komika
+              {/* Photo Asset Box */}
+              <div className="border-3 border-black p-3.5 bg-[#FFFDF9] space-y-2 shadow-[2px_2px_0px_0px_#000]">
+                <label className="block text-xs font-black text-black uppercase">
+                  FOTO HEADSHOT TALENT
                 </label>
                 <div className="flex items-center gap-3">
-                  {/* Photo Preview */}
-                  <div className="relative w-16 h-16 bg-white border-2 border-black overflow-hidden shrink-0 flex items-center justify-center">
+                  <div className="relative w-16 h-16 bg-white border-2 border-black overflow-hidden shrink-0 flex items-center justify-center shadow-[1px_1px_0px_0px_#000]">
                     {avatarUrl ? (
                       <Image
                         src={avatarUrl}
@@ -673,12 +868,11 @@ export default function ComediansAdminPage() {
                         className="object-cover"
                       />
                     ) : (
-                      <ImageIcon className="w-6 h-6 text-gray-300" />
+                      <ImageIcon className="w-6 h-6 text-zinc-400" />
                     )}
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex-1 flex flex-col gap-1.5">
+                  <div className="flex-1 flex flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
@@ -686,19 +880,19 @@ export default function ComediansAdminPage() {
                           setPickerTargetComedianId(null);
                           setIsPickerOpen(true);
                         }}
-                        className="px-2.5 py-1.5 bg-[#FFF8F6] hover:bg-yellow-200 text-gray-900 border border-black text-xs font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors shadow-[2px_2px_0px_0px_#000]"
+                        className="px-2.5 py-1.5 bg-[#FFD700] hover:bg-[#FFE55C] text-black border-2 border-black text-[11px] font-black uppercase tracking-wider flex items-center gap-1 shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
                       >
-                        <Images className="w-3.5 h-3.5 text-[#FF4500]" />
-                        <span>Pilih Dari Storage</span>
+                        <Images className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>PILIH STORAGE</span>
                       </button>
 
-                      <label className="px-2.5 py-1.5 bg-black hover:bg-[#FF4500] text-white border border-black text-xs font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors shadow-[2px_2px_0px_0px_#000]">
+                      <label className="px-2.5 py-1.5 bg-black hover:bg-[#FF4500] text-white border-2 border-black text-[11px] font-black uppercase tracking-wider flex items-center gap-1 shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer">
                         {isUploadingPhoto ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
-                          <Upload className="w-3.5 h-3.5" />
+                          <Upload className="w-3.5 h-3.5 stroke-[2.5]" />
                         )}
-                        <span>{isUploadingPhoto ? "Uploading..." : "Upload Baru"}</span>
+                        <span>{isUploadingPhoto ? "UPLOADING..." : "UPLOAD FILE"}</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -712,9 +906,9 @@ export default function ComediansAdminPage() {
                         <button
                           type="button"
                           onClick={() => setAvatarUrl("")}
-                          className="px-2 py-1 text-xs text-red-600 hover:text-white hover:bg-red-600 border border-transparent hover:border-black transition-colors"
+                          className="px-2 py-1 text-[11px] font-black text-red-600 hover:bg-red-500 hover:text-white border border-black transition-colors"
                         >
-                          Hapus
+                          HAPUS
                         </button>
                       )}
                     </div>
@@ -723,15 +917,15 @@ export default function ComediansAdminPage() {
                       type="text"
                       value={avatarUrl}
                       onChange={(e) => setAvatarUrl(e.target.value)}
-                      placeholder="URL Cloudinary atau pilih dari storage..."
-                      className="w-full bg-white border border-gray-300 px-2 py-1 text-[11px] font-mono text-gray-700 focus:outline-none focus:border-black"
+                      placeholder="URL CDN Cloudinary..."
+                      className="w-full bg-white border-2 border-black px-2 py-1 text-[11px] font-mono text-black focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Lineup & Visibility Settings */}
-              <div className="p-3 bg-amber-50 border border-amber-300 space-y-3">
+              <div className="p-3 bg-[#FEF08A] border-3 border-black space-y-2.5 shadow-[2px_2px_0px_0px_#000]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <input
@@ -739,57 +933,58 @@ export default function ComediansAdminPage() {
                       id="isFeaturedCheck"
                       checked={isFeaturedLineup}
                       onChange={(e) => setIsFeaturedLineup(e.target.checked)}
-                      className="w-4 h-4 text-[#FF4500]"
+                      className="w-4 h-4 accent-black cursor-pointer"
                     />
-                    <label htmlFor="isFeaturedCheck" className="text-xs font-bold text-gray-900 cursor-pointer flex items-center gap-1">
-                      <Star className="w-3.5 h-3.5 text-[#FF4500] fill-[#FF4500]" />
-                      <span>Tampilkan di THE LINEUP (Homepage)</span>
+                    <label htmlFor="isFeaturedCheck" className="text-xs font-black text-black cursor-pointer uppercase flex items-center gap-1">
+                      <Star className="w-3.5 h-3.5 text-black fill-black" />
+                      <span>FEATURED PADA HOMEPAGE LINEUP</span>
                     </label>
                   </div>
 
                   {isFeaturedLineup && (
                     <div className="flex items-center gap-1.5">
-                      <label className="text-xs font-semibold text-gray-700">Urutan:</label>
+                      <label className="text-xs font-black text-black">URUTAN:</label>
                       <input
                         type="number"
                         min={1}
                         max={99}
                         value={lineupOrder}
                         onChange={(e) => setLineupOrder(parseInt(e.target.value, 10) || 1)}
-                        className="w-16 bg-white border border-gray-300 p-1 text-xs text-center font-bold"
+                        className="w-14 bg-white border-2 border-black p-1 text-xs text-center font-black"
                       />
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 pt-1 border-t border-amber-200">
+                <div className="flex items-center gap-2 pt-2 border-t-2 border-black">
                   <input
                     type="checkbox"
                     id="isActiveCheck"
                     checked={isActive}
                     onChange={(e) => setIsActive(e.target.checked)}
-                    className="w-4 h-4 text-gray-900"
+                    className="w-4 h-4 accent-black cursor-pointer"
                   />
-                  <label htmlFor="isActiveCheck" className="text-xs font-semibold text-gray-700">
-                    Tampilkan komika di Halaman Publik Web (Aktif)
+                  <label htmlFor="isActiveCheck" className="text-xs font-black text-black cursor-pointer uppercase">
+                    AKTIFKAN VISIBILITAS DI WEBSITE (PUBLIK)
                   </label>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-2">
+              {/* Modal Buttons */}
+              <div className="pt-3 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50 transition-colors"
+                  className="flex-1 py-3 bg-white text-black text-xs font-black uppercase border-3 border-black shadow-[3px_3px_0px_0px_#000] hover:bg-zinc-100 active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                 >
-                  Batal
+                  BATAL
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-gray-900 text-white text-xs font-semibold hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50"
+                  className="flex-2 py-3 bg-[#22C55E] hover:bg-[#16A34A] text-black text-xs font-black uppercase border-3 border-black shadow-[4px_4px_0px_0px_#000] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {isSubmitting ? "Menyimpan..." : "Simpan Profil Komika"}
+                  {isSubmitting ? "MENYIMPAN KE NEON DB..." : "SAVE DATA"}
                 </button>
               </div>
             </form>
@@ -797,44 +992,44 @@ export default function ComediansAdminPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* 5. Pure Neo-Brutalism Delete Confirmation Modal */}
       {deleteComedianId && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-red-200 max-w-sm w-full p-6 shadow-xl space-y-4">
-            <div className="flex items-center gap-3 text-red-600">
-              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5" />
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-xs font-mono">
+          <div className="bg-white border-4 border-black max-w-sm w-full p-6 shadow-[8px_8px_0px_0px_#000] space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-red-500 border-3 border-black text-white flex items-center justify-center shrink-0 shadow-[2px_2px_0px_0px_#000]">
+                <AlertTriangle className="w-6 h-6 stroke-[3]" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-gray-900">Hapus Komika?</h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Profil komika akan dihapus permanen dari database Neon.
+                <h3 className="text-sm font-black uppercase text-black">HAPUS KOMIKA?</h3>
+                <p className="text-xs text-zinc-600 font-bold mt-0.5">
+                  Record profil akan dihapus permanen dari tabel comedians Neon.
                 </p>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+            <div className="pt-4 border-t-3 border-black flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setDeleteComedianId(null)}
-                className="px-3 py-1.5 border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50 transition-colors"
+                className="flex-1 py-2.5 bg-white text-black text-xs font-black uppercase border-3 border-black shadow-[2px_2px_0px_0px_#000] hover:bg-zinc-100 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
               >
-                Batal
+                BATAL
               </button>
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={confirmDelete}
-                className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase border-3 border-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all cursor-pointer disabled:opacity-50"
               >
-                {isSubmitting ? "Menghapus..." : "Hapus Sekarang"}
+                {isSubmitting ? "MENGHAPUS..." : "HAPUS PERMANEN"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Reusable Media Storage Picker Modal (Anti-Duplication) */}
+      {/* Media Picker Modal */}
       <MediaPickerModal
         isOpen={isPickerOpen}
         onClose={() => {
