@@ -19,6 +19,34 @@ export async function POST(request: Request) {
 
     const result = await uploadAsset(buffer, file.name, folder);
 
+    // Auto-record to media_assets table in Neon DB
+    try {
+      const { getSql } = await import("../../../src/lib/db");
+      const sql = getSql();
+      const assetType = folder.includes("comedian")
+        ? "HEADSHOT"
+        : folder.includes("flyer")
+        ? "FLYER"
+        : folder.includes("merch")
+        ? "DOCUMENTATION"
+        : "BANNER";
+
+      await sql`
+        INSERT INTO media_assets (id, name, url, type, size, uploaded_at)
+        VALUES (
+          ${'med-' + Date.now()},
+          ${file.name},
+          ${result.url},
+          ${result.size || 'Unknown'},
+          ${assetType},
+          CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (id) DO NOTHING
+      `;
+    } catch (dbErr) {
+      console.warn("Could not auto-register uploaded asset to media_assets table:", dbErr);
+    }
+
     return NextResponse.json({
       success: true,
       ...result,

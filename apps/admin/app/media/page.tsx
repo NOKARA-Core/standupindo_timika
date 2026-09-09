@@ -18,19 +18,22 @@ import {
   X,
   AlertTriangle,
   Eye,
+  Images,
+  FolderOpen,
 } from "lucide-react";
 import {
   SiteAssetsConfig,
   defaultSiteConfig,
 } from "../../src/lib/site-config";
 import {
-  initialMediaAssets,
   MediaAsset,
 } from "../../src/lib/mock-data";
 
 interface StagedSlot {
-  file: File;
+  file: File | null;
   previewUrl: string;
+  source: "local" | "storage";
+  assetName?: string;
 }
 
 export default function MediaAssetsAdminPage() {
@@ -47,8 +50,13 @@ export default function MediaAssetsAdminPage() {
   const [toggleModalOpen, setToggleModalOpen] = useState(false);
   const [toggling, setToggling] = useState(false);
 
-  // Storage explorer state
-  const [assets, setAssets] = useState<MediaAsset[]>(initialMediaAssets);
+  // Media Picker Modal (to pick from already uploaded assets)
+  const [pickerSlotId, setPickerSlotId] = useState<string | null>(null);
+  const [pickerTypeFilter, setPickerTypeFilter] = useState<string>("ALL");
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+
+  // Storage explorer state (loaded from Neon DB /api/media-assets)
+  const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [selectedType, setSelectedType] = useState<string>("ALL");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -82,6 +90,18 @@ export default function MediaAssetsAdminPage() {
     };
   };
 
+  const fetchMediaAssets = async () => {
+    try {
+      const res = await fetch("/api/media-assets");
+      if (res.ok) {
+        const data = await res.json();
+        setAssets(data);
+      }
+    } catch (err) {
+      console.warn("Could not load media assets:", err);
+    }
+  };
+
   // Load configuration from API on mount
   useEffect(() => {
     async function loadConfig() {
@@ -98,13 +118,16 @@ export default function MediaAssetsAdminPage() {
       }
     }
     loadConfig();
+    fetchMediaAssets();
   }, []);
 
   // Cleanup object URLs on unmount
   useEffect(() => {
     return () => {
       Object.values(stagedSlots).forEach((s) => {
-        URL.revokeObjectURL(s.previewUrl);
+        if (s.source === "local") {
+          URL.revokeObjectURL(s.previewUrl);
+        }
       });
     };
   }, [stagedSlots]);
@@ -139,28 +162,58 @@ export default function MediaAssetsAdminPage() {
     }, 3000);
   };
 
-  // Stage a file locally
+  // Stage a local file
   const handleStageFile = (slotId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Revoke previous object URL if any
-    if (stagedSlots[slotId]) {
+    if (stagedSlots[slotId] && stagedSlots[slotId].source === "local") {
       URL.revokeObjectURL(stagedSlots[slotId].previewUrl);
     }
 
     const previewUrl = URL.createObjectURL(file);
     setStagedSlots((prev) => ({
       ...prev,
-      [slotId]: { file, previewUrl },
+      [slotId]: { file, previewUrl, source: "local", assetName: file.name },
     }));
     e.target.value = "";
+  };
+
+  // Open media picker to choose from already uploaded Cloudinary images
+  const handleOpenMediaPicker = (slotId: string, defaultType: string = "ALL") => {
+    setPickerSlotId(slotId);
+    setPickerTypeFilter(defaultType);
+    setIsPickerOpen(true);
+  };
+
+  // Select existing asset from picker (avoids re-uploading to Cloudinary)
+  const handleSelectAssetFromPicker = (asset: MediaAsset) => {
+    if (!pickerSlotId) return;
+
+    if (stagedSlots[pickerSlotId] && stagedSlots[pickerSlotId].source === "local") {
+      URL.revokeObjectURL(stagedSlots[pickerSlotId].previewUrl);
+    }
+
+    setStagedSlots((prev) => ({
+      ...prev,
+      [pickerSlotId]: {
+        file: null,
+        previewUrl: asset.url,
+        source: "storage",
+        assetName: asset.name,
+      },
+    }));
+
+    setIsPickerOpen(false);
+    showSlotFeedback(pickerSlotId, `Dipilih dari storage: ${asset.name}`);
   };
 
   // Cancel local staged preview
   const handleCancelPreview = (slotId: string) => {
     if (stagedSlots[slotId]) {
-      URL.revokeObjectURL(stagedSlots[slotId].previewUrl);
+      if (stagedSlots[slotId].source === "local") {
+        URL.revokeObjectURL(stagedSlots[slotId].previewUrl);
+      }
       setStagedSlots((prev) => {
         const copy = { ...prev };
         delete copy[slotId];
@@ -169,7 +222,7 @@ export default function MediaAssetsAdminPage() {
     }
   };
 
-  // Apply staged file (Upload to Cloudinary & Save to DB slot)
+  // Apply staged file (Uploads if local, or directly saves if chosen from storage)
   const handleApplySlot = async (
     slotId: string,
     folder: string,
@@ -180,37 +233,27 @@ export default function MediaAssetsAdminPage() {
 
     setUploadingSlot(slotId);
     try {
-      const uploaded = await uploadFileToServer(staged.file, folder);
-      const updatedConfig = updateFn(uploaded.url);
+      let finalUrl = staged.previewUrl;
+
+      // Only upload if it's a new local file
+      if (staged.source === "local" && staged.file) {
+        const uploaded = await uploadFileToServer(staged.file, folder);
+        finalUrl = uploaded.url;
+        URL.revokeObjectURL(staged.previewUrl);
+      }
+
+      const updatedConfig = updateFn(finalUrl);
       const saved = await persistConfig(updatedConfig);
 
       if (saved) {
-        // Clean up preview
-        URL.revokeObjectURL(staged.previewUrl);
         setStagedSlots((prev) => {
           const copy = { ...prev };
           delete copy[slotId];
           return copy;
         });
 
-        showSlotFeedback(slotId, "Aset berhasil diupload & diterapkan!");
-
-        // Add to explorer
-        setAssets((prev) => [
-          {
-            id: `med-${Date.now()}`,
-            name: staged.file.name,
-            type: folder.includes("comedian")
-              ? "HEADSHOT"
-              : folder.includes("flyer")
-              ? "FLYER"
-              : "BANNER",
-            size: uploaded.size,
-            url: uploaded.url,
-            uploadedAt: new Date().toISOString().split("T")[0] || "2026-10-01",
-          },
-          ...prev,
-        ]);
+        showSlotFeedback(slotId, "Aset berhasil diterapkan ke database!");
+        await fetchMediaAssets();
       }
     } catch (err: any) {
       alert(err.message || "Gagal mengunggah dan menerapkan aset.");
@@ -266,14 +309,23 @@ export default function MediaAssetsAdminPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleDeleteAsset = (id: string) => {
+  const handleDeleteAsset = async (id: string) => {
     if (confirm("Hapus aset media ini dari storage?")) {
-      setAssets((prev) => prev.filter((item) => item.id !== id));
+      try {
+        await fetch(`/api/media-assets?id=${id}`, { method: "DELETE" });
+        setAssets((prev) => prev.filter((item) => item.id !== id));
+      } catch {
+        alert("Gagal menghapus aset.");
+      }
     }
   };
 
   const filteredAssets = assets.filter(
     (a) => selectedType === "ALL" || a.type === selectedType
+  );
+
+  const pickerFilteredAssets = assets.filter(
+    (a) => pickerTypeFilter === "ALL" || a.type === pickerTypeFilter
   );
 
   const webUrl = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:5000";
@@ -288,7 +340,7 @@ export default function MediaAssetsAdminPage() {
             <span>Dedicated Media Slots & Asset Staging</span>
           </h1>
           <p className="text-xs text-gray-500 mt-1">
-            Sistem upload per-slot dengan staging preview lokal sebelum disimpan permanen ke database Neon dan Cloudinary.
+            Sistem upload per-slot dengan staging preview lokal dan opsi memilih dari media storage tanpa upload ulang.
           </p>
         </div>
 
@@ -328,7 +380,7 @@ export default function MediaAssetsAdminPage() {
         </div>
       </div>
 
-      {/* 2. Global Sync Toggle Banner (With Confirmation Dialog) */}
+      {/* 2. Global Sync Toggle Banner */}
       <div
         className={`border-4 border-black p-6 transition-all shadow-[6px_6px_0px_0px_#000000] ${
           siteConfig.useDynamicAssets
@@ -373,7 +425,6 @@ export default function MediaAssetsAdminPage() {
             </div>
           </div>
 
-          {/* Toggle Button with Confirmation Modal Trigger */}
           <div className="flex items-center gap-3 shrink-0">
             <button
               type="button"
@@ -477,7 +528,7 @@ export default function MediaAssetsAdminPage() {
             </h2>
           </div>
           <span className="text-xs text-gray-500 font-medium">
-            Setiap kartu memiliki tombol simpan dan batal mandiri.
+            Pilih file baru atau gunakan kembali gambar yang pernah diunggah.
           </span>
         </div>
 
@@ -500,7 +551,7 @@ export default function MediaAssetsAdminPage() {
                     </h3>
                     {staged && (
                       <span className="px-2 py-0.5 bg-yellow-300 text-black text-[10px] font-bold border border-black animate-pulse">
-                        STAGING (LOKAL)
+                        {staged.source === "storage" ? "STAGING (DARI STORAGE)" : "STAGING (LOKAL)"}
                       </span>
                     )}
                     {feedback && (
@@ -544,12 +595,12 @@ export default function MediaAssetsAdminPage() {
                         {isUploading ? (
                           <>
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            <span>Uploading...</span>
+                            <span>Menyimpan...</span>
                           </>
                         ) : (
                           <>
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>Upload & Apply</span>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>{staged.source === "storage" ? "Terapkan Aset" : "Upload & Apply"}</span>
                           </>
                         )}
                       </button>
@@ -568,12 +619,25 @@ export default function MediaAssetsAdminPage() {
                           className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-400 text-xs font-bold cursor-pointer flex items-center gap-1"
                         >
                           <RotateCcw className="w-3 h-3" />
-                          <span>Reset to Default</span>
+                          <span>Reset</span>
                         </button>
                       )}
+
+                      {/* Pick from previously uploaded images */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenMediaPicker(slotId, "BANNER")}
+                        className="px-3.5 py-1.5 bg-[#FFF8F6] text-black hover:bg-yellow-300 border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer flex items-center gap-1.5 active:translate-y-0.5"
+                        title="Pilih gambar yang pernah diunggah sebelumnya"
+                      >
+                        <Images className="w-3.5 h-3.5 text-[#FF4500]" />
+                        <span>Pilih Dari Storage</span>
+                      </button>
+
+                      {/* Upload new file */}
                       <label className="px-3.5 py-1.5 bg-black text-white hover:bg-[#FF4500] border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer flex items-center gap-1.5">
                         <Upload className="w-3.5 h-3.5" />
-                        <span>Pilih Gambar Baru</span>
+                        <span>Upload File Baru</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -607,7 +671,11 @@ export default function MediaAssetsAdminPage() {
                                 : "bg-black text-white"
                             }`}
                           >
-                            {staged ? "LOCAL STAGING" : "ACTIVE CLOUDINARY"}
+                            {staged
+                              ? staged.source === "storage"
+                                ? "DARI STORAGE"
+                                : "LOCAL STAGING"
+                              : "ACTIVE CLOUDINARY"}
                           </span>
                         </div>
                       </>
@@ -642,7 +710,9 @@ export default function MediaAssetsAdminPage() {
                     Status Slot:{" "}
                     {staged ? (
                       <span className="text-yellow-700 bg-yellow-100 px-2 py-0.5 border border-yellow-300">
-                        Preview Lokal (Belum Terupload)
+                        {staged.source === "storage"
+                          ? `Dipilih dari Storage (${staged.assetName || "gambar"})`
+                          : "Preview File Lokal (Belum Terupload)"}
                       </span>
                     ) : siteConfig.hero.isCustom ? (
                       <span className="text-orange-600 bg-orange-50 px-2 py-0.5 border border-orange-200">
@@ -655,7 +725,7 @@ export default function MediaAssetsAdminPage() {
                     )}
                   </div>
                   <p className="leading-relaxed">
-                    Saat memilih file gambar, preview lokal akan langsung ditampilkan di kartu ini tanpa melakukan network request ke Cloudinary. Klik <strong>Upload & Apply</strong> untuk menyimpan permanen ke slot database.
+                    Anda dapat mengklik <strong>"Pilih Dari Storage"</strong> untuk memakai kembali gambar panggung yang pernah diunggah sebelumnya tanpa membuat upload ganda di Cloudinary.
                   </p>
                 </div>
               </div>
@@ -718,7 +788,7 @@ export default function MediaAssetsAdminPage() {
 
                       {staged && (
                         <div className="absolute top-2 left-2 z-10 px-1.5 py-0.5 bg-yellow-300 border border-black text-[9px] font-bold">
-                          STAGING
+                          {staged.source === "storage" ? "STORAGE" : "STAGING"}
                         </div>
                       )}
                     </div>
@@ -731,7 +801,7 @@ export default function MediaAssetsAdminPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="mt-4 pt-3 border-t-2 border-black flex items-center justify-between gap-2">
+                  <div className="mt-4 pt-3 border-t-2 border-black flex flex-col gap-2">
                     {staged ? (
                       <div className="flex items-center gap-1.5 w-full">
                         <button
@@ -764,12 +834,12 @@ export default function MediaAssetsAdminPage() {
                           {isUploading ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
                           ) : (
-                            "Upload"
+                            "Terapkan"
                           )}
                         </button>
                       </div>
                     ) : (
-                      <>
+                      <div className="flex items-center justify-between gap-1.5">
                         {c.isCustom && (
                           <button
                             type="button"
@@ -789,17 +859,27 @@ export default function MediaAssetsAdminPage() {
                             <span>Reset</span>
                           </button>
                         )}
-                        <label className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 bg-black hover:bg-[#FF4500] text-white text-[10px] font-bold border border-black cursor-pointer">
-                          <Upload className="w-3 h-3" />
-                          <span>Pilih Foto</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleStageFile(slotId, e)}
-                          />
-                        </label>
-                      </>
+                        <div className="flex items-center gap-1 ml-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenMediaPicker(slotId, "HEADSHOT")}
+                            className="p-1 bg-[#FFF8F6] border border-black text-black hover:bg-yellow-300"
+                            title="Pilih dari storage"
+                          >
+                            <Images className="w-3.5 h-3.5 text-[#FF4500]" />
+                          </button>
+                          <label className="inline-flex items-center gap-1 px-2 py-1 bg-black hover:bg-[#FF4500] text-white text-[10px] font-bold border border-black cursor-pointer">
+                            <Upload className="w-3 h-3" />
+                            <span>Upload</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleStageFile(slotId, e)}
+                            />
+                          </label>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -861,7 +941,7 @@ export default function MediaAssetsAdminPage() {
 
                       {staged && (
                         <div className="absolute top-2 left-2 z-10 px-1.5 py-0.5 bg-yellow-300 border border-black text-[9px] font-bold">
-                          STAGING
+                          {staged.source === "storage" ? "STORAGE" : "STAGING"}
                         </div>
                       )}
                     </div>
@@ -873,7 +953,7 @@ export default function MediaAssetsAdminPage() {
                     )}
                   </div>
 
-                  <div className="mt-4 pt-3 border-t-2 border-black flex items-center justify-between gap-2">
+                  <div className="mt-4 pt-3 border-t-2 border-black flex flex-col gap-2">
                     {staged ? (
                       <div className="flex items-center gap-1.5 w-full">
                         <button
@@ -902,12 +982,12 @@ export default function MediaAssetsAdminPage() {
                           {isUploading ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
                           ) : (
-                            "Upload"
+                            "Terapkan"
                           )}
                         </button>
                       </div>
                     ) : (
-                      <>
+                      <div className="flex items-center justify-between gap-1.5">
                         {f.isCustom && (
                           <button
                             type="button"
@@ -927,17 +1007,27 @@ export default function MediaAssetsAdminPage() {
                             <span>Reset</span>
                           </button>
                         )}
-                        <label className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 bg-black hover:bg-[#FF4500] text-white text-[10px] font-bold border border-black cursor-pointer">
-                          <Upload className="w-3 h-3" />
-                          <span>Pilih Flyer</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleStageFile(slotId, e)}
-                          />
-                        </label>
-                      </>
+                        <div className="flex items-center gap-1 ml-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenMediaPicker(slotId, "FLYER")}
+                            className="p-1 bg-[#FFF8F6] border border-black text-black hover:bg-yellow-300"
+                            title="Pilih flyer dari storage"
+                          >
+                            <Images className="w-3.5 h-3.5 text-[#FF4500]" />
+                          </button>
+                          <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-black hover:bg-[#FF4500] text-white text-[10px] font-bold border border-black cursor-pointer">
+                            <Upload className="w-3 h-3" />
+                            <span>Upload</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleStageFile(slotId, e)}
+                            />
+                          </label>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1001,7 +1091,7 @@ export default function MediaAssetsAdminPage() {
 
                       {staged && (
                         <div className="absolute top-2 left-2 z-10 px-1.5 py-0.5 bg-yellow-300 border border-black text-[9px] font-bold">
-                          STAGING
+                          {staged.source === "storage" ? "STORAGE" : "STAGING"}
                         </div>
                       )}
                     </div>
@@ -1013,7 +1103,7 @@ export default function MediaAssetsAdminPage() {
                     )}
                   </div>
 
-                  <div className="mt-4 pt-3 border-t-2 border-black flex items-center justify-between gap-2">
+                  <div className="mt-4 pt-3 border-t-2 border-black flex flex-col gap-2">
                     {staged ? (
                       <div className="flex items-center gap-1.5 w-full">
                         <button
@@ -1042,12 +1132,12 @@ export default function MediaAssetsAdminPage() {
                           {isUploading ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
                           ) : (
-                            "Upload"
+                            "Terapkan"
                           )}
                         </button>
                       </div>
                     ) : (
-                      <>
+                      <div className="flex items-center justify-between gap-1.5">
                         {m.isCustom && (
                           <button
                             type="button"
@@ -1067,17 +1157,27 @@ export default function MediaAssetsAdminPage() {
                             <span>Reset</span>
                           </button>
                         )}
-                        <label className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 bg-black hover:bg-[#FF4500] text-white text-[10px] font-bold border border-black cursor-pointer">
-                          <Upload className="w-3 h-3" />
-                          <span>Pilih Foto Produk</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleStageFile(slotId, e)}
-                          />
-                        </label>
-                      </>
+                        <div className="flex items-center gap-1 ml-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenMediaPicker(slotId, "DOCUMENTATION")}
+                            className="p-1 bg-[#FFF8F6] border border-black text-black hover:bg-yellow-300"
+                            title="Pilih foto produk dari storage"
+                          >
+                            <Images className="w-3.5 h-3.5 text-[#FF4500]" />
+                          </button>
+                          <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-black hover:bg-[#FF4500] text-white text-[10px] font-bold border border-black cursor-pointer">
+                            <Upload className="w-3 h-3" />
+                            <span>Upload</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleStageFile(slotId, e)}
+                            />
+                          </label>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1087,7 +1187,7 @@ export default function MediaAssetsAdminPage() {
         </div>
       </div>
 
-      {/* 5. General Media & Asset Storage Explorer */}
+      {/* 5. General Media & Asset Storage Explorer (Real Image Previews) */}
       <div className="pt-4 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -1095,7 +1195,7 @@ export default function MediaAssetsAdminPage() {
               Media Asset Storage Explorer
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Daftar seluruh file yang telah terunggah di media repository
+              Daftar seluruh file yang telah terunggah di Cloudinary & Neon DB ({assets.length} file)
             </p>
           </div>
 
@@ -1117,64 +1217,83 @@ export default function MediaAssetsAdminPage() {
           </div>
         </div>
 
+        {/* Real Thumbnail Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredAssets.map((asset) => (
-            <div
-              key={asset.id}
-              className="bg-white border-2 border-black shadow-[3px_3px_0px_0px_#000] flex flex-col justify-between overflow-hidden"
-            >
-              <div className="h-32 bg-gray-900 flex flex-col justify-between p-3 relative overflow-hidden">
-                <div className="flex justify-between items-start z-10">
-                  <span className="px-2 py-0.5 bg-white text-gray-900 text-[10px] font-bold uppercase tracking-wider">
-                    {asset.type}
-                  </span>
-                  <span className="text-[10px] text-white/70 font-mono">
-                    {asset.size}
-                  </span>
-                </div>
-
-                <div className="my-auto text-center z-10">
-                  <ImageIcon className="w-6 h-6 text-white/40 mx-auto mb-1" />
-                  <span className="text-[11px] text-white font-mono block px-2 truncate">
-                    {asset.name}
-                  </span>
-                </div>
-
-                <div className="text-[10px] text-white/50 z-10">
-                  Uploaded: {asset.uploadedAt}
-                </div>
-              </div>
-
-              <div className="p-2.5 bg-white border-t-2 border-black flex items-center justify-between text-xs">
-                <button
-                  type="button"
-                  onClick={() => handleCopyUrl(asset.id, asset.url)}
-                  className="flex items-center gap-1 text-gray-700 hover:text-black font-bold cursor-pointer"
-                >
-                  {copiedId === asset.id ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="text-emerald-600">Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy URL</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleDeleteAsset(asset.id)}
-                  className="p-1 text-gray-400 hover:text-red-600 cursor-pointer"
-                  title="Hapus Aset"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+          {filteredAssets.length === 0 ? (
+            <div className="col-span-full bg-white border-2 border-black p-8 text-center text-gray-500 font-mono text-xs">
+              Belum ada file media yang tersimpan di storage.
             </div>
-          ))}
+          ) : (
+            filteredAssets.map((asset) => (
+              <div
+                key={asset.id}
+                className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000] flex flex-col justify-between overflow-hidden group hover:shadow-[6px_6px_0px_0px_#000] transition-all"
+              >
+                {/* Visual Thumbnail Area */}
+                <div className="h-36 bg-gray-900 flex flex-col justify-between p-3 relative overflow-hidden">
+                  {asset.url && (
+                    <Image
+                      src={asset.url}
+                      alt={asset.name}
+                      fill
+                      unoptimized
+                      className="object-cover opacity-85 group-hover:opacity-100 transition-opacity"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+
+                  <div className="flex justify-between items-start z-10 relative">
+                    <span className="px-2 py-0.5 bg-white text-gray-900 text-[10px] font-bold uppercase tracking-wider">
+                      {asset.type}
+                    </span>
+                    <span className="text-[10px] text-white/90 font-mono font-bold bg-black/60 px-1">
+                      {asset.size}
+                    </span>
+                  </div>
+
+                  <div className="my-auto z-10 relative">
+                    <span className="text-[11px] text-white font-mono font-bold block px-1 truncate drop-shadow-md">
+                      {asset.name}
+                    </span>
+                  </div>
+
+                  <div className="text-[10px] text-white/70 z-10 relative font-mono">
+                    Uploaded: {asset.uploadedAt}
+                  </div>
+                </div>
+
+                {/* Card Action Bar */}
+                <div className="p-2.5 bg-white border-t-2 border-black flex items-center justify-between text-xs">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyUrl(asset.id, asset.url)}
+                    className="flex items-center gap-1 text-gray-700 hover:text-black font-bold cursor-pointer"
+                  >
+                    {copiedId === asset.id ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-600">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy URL</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteAsset(asset.id)}
+                    className="p-1 text-gray-400 hover:text-red-600 cursor-pointer"
+                    title="Hapus Aset"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -1240,6 +1359,127 @@ export default function MediaAssetsAdminPage() {
                   ) : (
                     <span>Ya, Terapkan Perubahan</span>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Media Picker Modal (Select from existing uploaded images) */}
+      {isPickerOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            onClick={() => setIsPickerOpen(false)}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white border-4 border-black p-6 md:p-8 max-w-3xl w-full max-h-[85vh] flex flex-col shadow-[8px_8px_0px_0px_#000000] relative animate-in zoom-in-95 duration-150"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between pb-4 border-b-2 border-black">
+                <div>
+                  <h3 className="font-['Space_Mono',monospace] font-bold text-base md:text-lg text-gray-900 uppercase flex items-center gap-2">
+                    <FolderOpen className="w-5 h-5 text-[#FF4500]" />
+                    <span>Pilih Gambar Dari Media Storage</span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Pilih gambar yang pernah diunggah sebelumnya tanpa perlu upload ulang ke Cloudinary.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPickerOpen(false)}
+                  className="p-1 text-gray-500 hover:text-black cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Type Filter Bar */}
+              <div className="py-3 flex flex-wrap gap-1.5 border-b border-gray-200">
+                {["ALL", "BANNER", "HEADSHOT", "FLYER", "DOCUMENTATION"].map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setPickerTypeFilter(type)}
+                    className={`px-2.5 py-1 text-xs font-bold uppercase transition-colors cursor-pointer border ${
+                      pickerTypeFilter === type
+                        ? "bg-black text-white border-black shadow-[2px_2px_0px_0px_#FF4500]"
+                        : "bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-300"
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+
+              {/* Grid of Available Images */}
+              <div className="flex-1 overflow-y-auto py-4 pr-1">
+                {pickerFilteredAssets.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500 font-mono text-xs border-2 border-dashed border-gray-300">
+                    Tidak ada gambar yang cocok dengan filter ini di storage.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5">
+                    {pickerFilteredAssets.map((asset) => (
+                      <div
+                        key={asset.id}
+                        onClick={() => handleSelectAssetFromPicker(asset)}
+                        className="group bg-white border-2 border-black hover:border-[#FF4500] hover:shadow-[4px_4px_0px_0px_#000] transition-all cursor-pointer flex flex-col overflow-hidden"
+                      >
+                        {/* Thumbnail */}
+                        <div className="h-28 bg-gray-900 relative overflow-hidden">
+                          {asset.url && (
+                            <Image
+                              src={asset.url}
+                              alt={asset.name}
+                              fill
+                              unoptimized
+                              className="object-cover group-hover:scale-105 transition-transform duration-200"
+                            />
+                          )}
+                          <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors" />
+                          <div className="absolute top-1 left-1">
+                            <span className="px-1.5 py-0.2 bg-black text-white text-[9px] font-bold uppercase">
+                              {asset.type}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Title & Button */}
+                        <div className="p-2 flex flex-col justify-between flex-1">
+                          <span className="text-[11px] font-bold text-gray-900 truncate font-mono">
+                            {asset.name}
+                          </span>
+                          <span className="text-[9px] text-gray-500 font-mono">
+                            {asset.size}
+                          </span>
+                          <div className="mt-2 text-center py-1 bg-gray-100 group-hover:bg-[#FF4500] group-hover:text-white text-[10px] font-bold uppercase border border-black transition-colors">
+                            Gunakan Gambar
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="pt-3 border-t-2 border-black flex items-center justify-between">
+                <span className="text-xs text-gray-500 font-mono">
+                  {pickerFilteredAssets.length} gambar tersedia di storage
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsPickerOpen(false)}
+                  className="px-4 py-1.5 border-2 border-black font-bold text-xs uppercase hover:bg-gray-100 cursor-pointer"
+                >
+                  Tutup
                 </button>
               </div>
             </div>
