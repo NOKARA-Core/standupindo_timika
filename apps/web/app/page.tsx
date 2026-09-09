@@ -10,7 +10,6 @@ import { StoreSection } from "../src/components/StoreSection";
 import { PartnersSection } from "../src/components/PartnersSection";
 import { LocationSection } from "../src/components/LocationSection";
 import { Footer } from "../src/components/Footer";
-import { AdminPreviewBar, PreviewMode } from "../src/components/AdminPreviewBar";
 import {
   SiteAssetsConfig,
   defaultSiteConfig,
@@ -19,17 +18,17 @@ import {
 
 export default function Home() {
   const [siteConfig, setSiteConfig] = useState<SiteAssetsConfig>(defaultSiteConfig);
-  const [previewMode, setPreviewMode] = useState<PreviewMode>("auto");
+  const [forcedMode, setForcedMode] = useState<"static" | "dynamic" | null>(null);
 
-  // Read URL query parameter ?view_mode=static | dynamic
+  // Read URL query parameter ?view_mode=static | dynamic (from Admin Panel preview actions)
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const viewMode = params.get("view_mode")?.toLowerCase();
       if (viewMode === "static") {
-        setPreviewMode("static");
+        setForcedMode("static");
       } else if (viewMode === "dynamic") {
-        setPreviewMode("dynamic");
+        setForcedMode("dynamic");
       }
     }
   }, []);
@@ -46,14 +45,16 @@ export default function Home() {
     };
   }, []);
 
-  // Compute effective dynamic mode based on public database setting vs preview bar override
+  // Use forced mode if query param exists, otherwise follow public database setting
   const effectiveIsDynamic =
-    previewMode === "auto"
-      ? siteConfig.useDynamicAssets
-      : previewMode === "dynamic";
+    forcedMode === "static"
+      ? false
+      : forcedMode === "dynamic"
+      ? true
+      : siteConfig.useDynamicAssets;
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] flex flex-col selection:bg-[#FF4500] selection:text-white relative">
+    <div className="min-h-screen bg-[#FDFBF7] flex flex-col selection:bg-[#FF4500] selection:text-white">
       <Navbar />
       <main className="flex-1 flex flex-col">
         <HeroSection
@@ -74,13 +75,6 @@ export default function Home() {
         <LocationSection />
       </main>
       <Footer />
-
-      {/* Floating Admin Preview Bar for live dual mode checking */}
-      <AdminPreviewBar
-        publicModeIsDynamic={siteConfig.useDynamicAssets}
-        activePreviewMode={previewMode}
-        onSelectMode={setPreviewMode}
-      />
     </div>
   );
 }

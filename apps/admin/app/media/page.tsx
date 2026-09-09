@@ -17,6 +17,7 @@ import {
   Loader2,
   X,
   AlertTriangle,
+  Eye,
 } from "lucide-react";
 import {
   SiteAssetsConfig,
@@ -291,14 +292,37 @@ export default function MediaAssetsAdminPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={`${webUrl}/?view_mode=static`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-yellow-300 hover:bg-yellow-400 text-black text-xs font-bold border-2 border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
+            title="Cek tampilan mode statis bawaan tanpa merubah database"
+          >
+            <Eye className="w-3.5 h-3.5 text-black" />
+            <span>Preview Mode Statis</span>
+          </a>
+
+          <a
+            href={`${webUrl}/?view_mode=dynamic`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#FF4500] hover:bg-[#E03E00] text-white text-xs font-bold border-2 border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
+            title="Cek tampilan mode dinamis upload tanpa merubah database"
+          >
+            <Eye className="w-3.5 h-3.5 text-white" />
+            <span>Preview Mode Dinamis</span>
+          </a>
+
           <a
             href={webUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 text-gray-800 text-xs font-bold border-2 border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
+            title="Buka tampilan landing page publik saat ini"
           >
-            <span>Buka Landing Page (Web)</span>
+            <span>Web Publik</span>
             <ExternalLink className="w-3.5 h-3.5 text-gray-600" />
           </a>
         </div>
