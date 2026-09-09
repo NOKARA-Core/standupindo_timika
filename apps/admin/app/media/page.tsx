@@ -609,7 +609,7 @@ export default function MediaAssetsAdminPage() {
               </p>
             </div>
             <div className="mt-3 pt-2 border-t border-gray-200 text-[10px] text-gray-500 font-mono">
-              • Rekomendasi: 800 × 800 px (Grayscale filter)
+              • Rekomendasi: 1280 × 800 px (Grayscale filter)
             </div>
           </div>
 
