@@ -74,10 +74,10 @@ export function Header({
           </div>
           <div className="hidden lg:flex flex-col text-left">
             <span className="text-xs font-bold text-gray-900 leading-tight">
-              M. Amin
+              Admin
             </span>
             <span className="text-[10px] text-gray-500 leading-tight">
-              Ketua Timika
+              Dashboard Comedy
             </span>
           </div>
         </div>

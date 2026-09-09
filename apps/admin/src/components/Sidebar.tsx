@@ -185,7 +185,7 @@ export function Sidebar({
               {!isCollapsed && (
                 <div className="flex flex-col min-w-0">
                   <span className="text-xs font-semibold text-gray-900 truncate">
-                    M. Amin Hidayat
+                    Ketua bossQ 
                   </span>
                   <span className="text-[10px] text-gray-500 truncate">
                     Super Administrator
