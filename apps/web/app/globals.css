@@ -109,3 +109,29 @@ a {
   animation-play-state: paused;
 }
 
+/* Comic-Tick Stepped Rotation for Partners */
+@keyframes brutal-tilt {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-1.5deg);
+  }
+  50% {
+    transform: rotate(1deg);
+  }
+  75% {
+    transform: rotate(-1deg);
+  }
+}
+
+.animate-brutal-tick {
+  animation: brutal-tilt 4s steps(4) infinite;
+  will-change: transform;
+}
+
+.animate-brutal-tick:nth-child(even) {
+  animation-duration: 3.2s;
+  animation-direction: reverse;
+}
+
