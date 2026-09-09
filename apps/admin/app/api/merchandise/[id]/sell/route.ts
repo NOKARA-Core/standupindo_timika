@@ -29,18 +29,21 @@ export async function POST(
       LIMIT 1
     `;
 
-    if (items.length === 0) {
+    const item = items[0];
+    if (!item) {
       return NextResponse.json(
         { error: "Item merchandise tidak ditemukan" },
         { status: 404 }
       );
     }
 
-    const item = items[0];
+    const itemStock = Number(item.stock) || 0;
+    const itemPrice = Number(item.price) || 0;
+    const itemName = String(item.name || "Merchandise");
 
-    if (item.stock <= 0) {
+    if (itemStock <= 0) {
       return NextResponse.json(
-        { error: `Stok "${item.name}" sudah habis (0). Tambah stok terlebih dahulu.` },
+        { error: `Stok "${itemName}" sudah habis (0). Tambah stok terlebih dahulu.` },
         { status: 400 }
       );
     }
@@ -58,8 +61,8 @@ export async function POST(
 
     // 3. Insert transaction into finances
     const txId = `fnc-${Date.now()}`;
-    const todayStr = new Date().toISOString().split("T")[0];
-    const txDesc = `Terjual ${item.name}`;
+    const todayStr: string = new Date().toISOString().split("T")[0] ?? "2026-09-09";
+    const txDesc: string = `Terjual ${itemName}`;
 
     // Ensure finances table exists just in case
     await sql`
@@ -79,7 +82,7 @@ export async function POST(
       INSERT INTO finances (
         id, type, category, amount, transaction_date, description, created_at, updated_at
       ) VALUES (
-        ${txId}, 'INCOME', 'Penjualan Merchandise', ${item.price}, ${todayStr}, ${txDesc}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        ${txId}, 'INCOME', 'Penjualan Merchandise', ${itemPrice}, ${todayStr}, ${txDesc}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       )
       RETURNING 
         id, type, category, amount::float as amount, transaction_date as "transactionDate", description, created_at as "createdAt"
@@ -91,7 +94,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: `1 unit "${item.name}" berhasil ditandai terjual dan dicatat ke Finance (+Rp ${Number(item.price).toLocaleString("id-ID")}).`,
+      message: `1 unit "${itemName}" berhasil ditandai terjual dan dicatat ke Finance (+Rp ${itemPrice.toLocaleString("id-ID")}).`,
       item: updatedMerch[0],
       transaction: insertedTx[0],
     });
