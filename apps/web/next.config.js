@@ -43,7 +43,9 @@ const nextConfig = {
       // Media (audio/video)
       "media-src 'self' data: blob: https://res.cloudinary.com https://*.supabase.co",
       // Connect: Self, Supabase APIs, local/remote backend APIs, and Google font preconnect
-      "connect-src 'self' https://*.supabase.co https://res.cloudinary.com https://fonts.googleapis.com https://fonts.gstatic.com http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*",
+      isDev
+        ? "connect-src 'self' https://*.supabase.co https://res.cloudinary.com https://fonts.googleapis.com https://fonts.gstatic.com http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*"
+        : "connect-src 'self' https://*.supabase.co https://res.cloudinary.com https://fonts.googleapis.com https://fonts.gstatic.com",
       // Frame src: Google Maps embed iframe
       "frame-src 'self' https://maps.google.com https://www.google.com https://*.google.com",
       // Prevent embedding this site inside untrusted iframes

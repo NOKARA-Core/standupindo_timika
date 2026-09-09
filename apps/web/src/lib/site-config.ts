@@ -135,10 +135,18 @@ export async function getSiteConfig(): Promise<SiteAssetsConfig> {
     return defaultSiteConfig;
   }
 
+  // On deployed environments (like Vercel), do not attempt to reach localhost
+  const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL;
+  const isDev = process.env.NODE_ENV === "development";
+
+  if (!adminUrl && !isDev) {
+    return defaultSiteConfig;
+  }
+
+  const targetUrl = adminUrl || "http://localhost:5001";
+
   try {
-    const adminUrl =
-      process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:5001";
-    const res = await fetch(`${adminUrl}/api/site-config`, {
+    const res = await fetch(`${targetUrl}/api/site-config`, {
       cache: "no-store",
     });
     if (res.ok) {
