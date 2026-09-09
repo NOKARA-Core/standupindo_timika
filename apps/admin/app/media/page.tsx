@@ -95,11 +95,14 @@ export default function MediaAssetsAdminPage() {
   const [isSavingPartner, setIsSavingPartner] = useState(false);
   const [isDeletingPartnerId, setIsDeletingPartnerId] = useState<string | null>(null);
 
-  // Comedians Lineup Selector State (Tabel Comedians - Single Source of Truth)
+  // Comedians Lineup Selector State (3 Posisi Lineup - Single Source of Truth)
   const [comediansList, setComediansList] = useState<ComedianItem[]>([]);
   const [loadingComedians, setLoadingComedians] = useState(false);
   const [isSavingLineup, setIsSavingLineup] = useState(false);
   const [lineupSuccessMsg, setLineupSuccessMsg] = useState<string | null>(null);
+  const [selectedSlot1Id, setSelectedSlot1Id] = useState<string>("");
+  const [selectedSlot2Id, setSelectedSlot2Id] = useState<string>("");
+  const [selectedSlot3Id, setSelectedSlot3Id] = useState<string>("");
 
   // Client helper for uploading to /api/upload
   const uploadFileToServer = async (
@@ -166,8 +169,24 @@ export default function MediaAssetsAdminPage() {
       setLoadingComedians(true);
       const res = await fetch("/api/comedians");
       if (res.ok) {
-        const data = await res.json();
+        const data: ComedianItem[] = await res.json();
         setComediansList(data);
+
+        // Populate Slot 1, 2, 3 from featured comedians or fallback to first 3 comedians
+        const featured = data
+          .filter((c) => c.isFeaturedLineup)
+          .sort((a, b) => (a.lineupOrder || 0) - (b.lineupOrder || 0));
+
+        if (featured.length > 0) {
+          if (featured[0]) setSelectedSlot1Id(featured[0].id);
+          if (featured[1]) setSelectedSlot2Id(featured[1].id);
+          if (featured[2]) setSelectedSlot3Id(featured[2].id);
+        } else {
+          // Pre-select first 3 if none featured
+          if (data[0]) setSelectedSlot1Id(data[0].id);
+          if (data[1]) setSelectedSlot2Id(data[1].id);
+          if (data[2]) setSelectedSlot3Id(data[2].id);
+        }
       }
     } catch (err) {
       console.warn("Could not load comedians in media page:", err);
@@ -176,76 +195,12 @@ export default function MediaAssetsAdminPage() {
     }
   };
 
-  // Lineup manipulation handlers
-  const handleToggleLineup = (comedianId: string) => {
-    setComediansList((prev) => {
-      const target = prev.find((c) => c.id === comedianId);
-      if (!target) return prev;
-      const nextFeatured = !target.isFeaturedLineup;
-      if (nextFeatured) {
-        const currentFeatured = prev.filter((c) => c.isFeaturedLineup);
-        const nextOrder = currentFeatured.length + 1;
-        return prev.map((c) =>
-          c.id === comedianId
-            ? { ...c, isFeaturedLineup: true, lineupOrder: nextOrder }
-            : c
-        );
-      } else {
-        return prev.map((c) =>
-          c.id === comedianId
-            ? { ...c, isFeaturedLineup: false, lineupOrder: 0 }
-            : c
-        );
-      }
-    });
-  };
-
-  const handleOrderChange = (comedianId: string, orderVal: number) => {
-    const val = isNaN(orderVal) ? 1 : Math.max(1, orderVal);
-    setComediansList((prev) =>
-      prev.map((c) =>
-        c.id === comedianId ? { ...c, lineupOrder: val } : c
-      )
-    );
-  };
-
-  const handleMoveOrder = (comedianId: string, direction: "up" | "down") => {
-    setComediansList((prev) => {
-      const featured = prev
-        .filter((c) => c.isFeaturedLineup)
-        .sort((a, b) => (a.lineupOrder || 0) - (b.lineupOrder || 0));
-      const idx = featured.findIndex((c) => c.id === comedianId);
-      if (idx === -1) return prev;
-      if (direction === "up" && idx === 0) return prev;
-      if (direction === "down" && idx === featured.length - 1) return prev;
-
-      const targetIdx = direction === "up" ? idx - 1 : idx + 1;
-      const currentItem = featured[idx];
-      const otherItem = featured[targetIdx];
-      if (!currentItem || !otherItem) return prev;
-
-      const currentOrder = currentItem.lineupOrder || idx + 1;
-      const otherOrder = otherItem.lineupOrder || targetIdx + 1;
-
-      return prev.map((c) => {
-        if (c.id === currentItem.id) return { ...c, lineupOrder: otherOrder };
-        if (c.id === otherItem.id) return { ...c, lineupOrder: currentOrder };
-        return c;
-      });
-    });
-  };
-
   const handleSaveLineup = async () => {
     setIsSavingLineup(true);
     setLineupSuccessMsg(null);
     try {
-      const payload = {
-        lineup: comediansList.map((c) => ({
-          id: c.id,
-          isFeaturedLineup: Boolean(c.isFeaturedLineup),
-          lineupOrder: c.isFeaturedLineup ? (c.lineupOrder || 1) : 0,
-        })),
-      };
+      const featuredIds = [selectedSlot1Id, selectedSlot2Id, selectedSlot3Id].filter(Boolean);
+      const payload = { featuredIds };
       const res = await fetch("/api/comedians/lineup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -256,7 +211,7 @@ export default function MediaAssetsAdminPage() {
         if (data.comedians) {
           setComediansList(data.comedians);
         }
-        setLineupSuccessMsg("Konfigurasi THE LINEUP berhasil disimpan ke tabel comedians!");
+        setLineupSuccessMsg("3 Komika THE LINEUP berhasil disimpan dan disinkronkan ke beranda!");
         setTimeout(() => setLineupSuccessMsg(null), 5000);
       } else {
         const errData = await res.json();
@@ -992,21 +947,21 @@ export default function MediaAssetsAdminPage() {
           );
         })()}
 
-        {/* SLOT 2: THE LINEUP ROSTER SELECTOR (TABEL COMEDIANS) */}
+        {/* SLOT 2: THE LINEUP ROSTER SELECTOR (TABEL COMEDIANS - 3 SLOTS) */}
         <div className="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#000]">
           <div className="pb-4 border-b-2 border-black flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
                 <h3 className="text-sm font-bold text-gray-900 uppercase font-['Space_Mono',monospace] tracking-wider">
-                  Slot 2: The Lineup Roster Selector (Tabel Comedians)
+                  Slot 2: The Lineup Roster Selector (3 Komika Beranda)
                 </h3>
                 <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-blue-100 text-blue-800 border border-blue-300">
                   SINGLE SOURCE OF TRUTH
                 </span>
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                Pilih komika dari tabel <code>comedians</code> untuk seksi <strong>THE LINEUP</strong> di beranda. Foto headshot langsung menggunakan URL Cloudinary dari profil komika tanpa duplikasi file.
+                Pilih tepat 3 komika dari database yang akan tampil di seksi <strong>THE LINEUP</strong> beranda. Foto headshot, nama panggung, dan punchline langsung sinkron tanpa upload ulang.
               </p>
             </div>
 
@@ -1054,197 +1009,217 @@ export default function MediaAssetsAdminPage() {
             </div>
           )}
 
-          {/* Active Featured Summary */}
-          {(() => {
-            const featured = comediansList
-              .filter((c) => c.isFeaturedLineup)
-              .sort((a, b) => (a.lineupOrder || 0) - (b.lineupOrder || 0));
+          {/* Loading state indicator */}
+          {loadingComedians && comediansList.length === 0 ? (
+            <div className="mt-6 p-12 text-center text-xs text-gray-500 font-mono border-2 border-dashed border-gray-300">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#FF4500]" />
+              <span>Memuat data komika dari database Neon...</span>
+            </div>
+          ) : (
+            /* 3 Dedicated Lineup Slots */
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {[
+                {
+                  slotNum: 1,
+                  label: "POSISI #1 (KIRI)",
+                  sublabel: "Opener / Featured #1",
+                  selectedId: selectedSlot1Id,
+                  setSelectedId: setSelectedSlot1Id,
+                },
+                {
+                  slotNum: 2,
+                  label: "POSISI #2 (TENGAH)",
+                  sublabel: "Headliner / Featured #2",
+                  selectedId: selectedSlot2Id,
+                  setSelectedId: setSelectedSlot2Id,
+                },
+                {
+                  slotNum: 3,
+                  label: "POSISI #3 (KANAN)",
+                  sublabel: "Closer / Featured #3",
+                  selectedId: selectedSlot3Id,
+                  setSelectedId: setSelectedSlot3Id,
+                },
+              ].map(({ slotNum, label, sublabel, selectedId, setSelectedId }) => {
+                const comedian = comediansList.find((c) => c.id === selectedId);
 
-            return (
-              <div className="mt-4 p-3 bg-[#FFF8F6] border border-black flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <Star className="w-4 h-4 text-[#FF4500] fill-[#FF4500]" />
-                  <span className="font-bold text-gray-900 font-mono">
-                    {featured.length} Komika Ditampilkan di Beranda:
-                  </span>
-                  <span className="text-gray-700 font-mono">
-                    {featured.length > 0
-                      ? featured.map((c, i) => `#${i + 1} ${c.stageName}`).join(" → ")
-                      : "Belum ada komika yang dipilih (menggunakan fallback bawaan web)"}
-                  </span>
-                </div>
-                <span className="text-[11px] text-gray-500 font-mono">
-                  Rekomendasi: 3 komika untuk layout grid beranda
-                </span>
-              </div>
-            );
-          })()}
-
-          {/* Comedians Selector Grid */}
-          <div className="mt-6">
-            {loadingComedians && comediansList.length === 0 ? (
-              <div className="p-12 text-center text-xs text-gray-500 font-mono border-2 border-dashed border-gray-300">
-                <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#FF4500]" />
-                <span>Memuat komika dari database Neon...</span>
-              </div>
-            ) : comediansList.length === 0 ? (
-              <div className="p-8 text-center text-xs text-gray-500 font-mono border-2 border-dashed border-gray-300">
-                Belum ada komika di tabel database. Buat komika baru di menu <Link href="/comedians" className="underline font-bold text-black">Comedians Roster</Link>.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {comediansList.map((c) => {
-                  const isFeatured = Boolean(c.isFeaturedLineup);
-
-                  return (
-                    <div
-                      key={c.id}
-                      className={`border-2 p-4 transition-all flex flex-col justify-between ${
-                        isFeatured
-                          ? "border-black bg-white shadow-[4px_4px_0px_0px_#FF4500]"
-                          : "border-gray-200 bg-gray-50 opacity-80 hover:opacity-100"
-                      }`}
-                    >
-                      <div>
-                        {/* Card Header: Checkbox & Order */}
-                        <div className="flex items-center justify-between pb-3 border-b border-gray-200">
-                          <label className="flex items-center gap-2 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={isFeatured}
-                              onChange={() => handleToggleLineup(c.id)}
-                              className="w-4 h-4 text-[#FF4500] rounded-none cursor-pointer border-2 border-black"
-                            />
-                            <span
-                              className={`text-xs font-bold uppercase tracking-wider font-mono ${
-                                isFeatured ? "text-black" : "text-gray-500"
-                              }`}
-                            >
-                              {isFeatured ? "Featured di Lineup" : "Sembunyikan"}
+                return (
+                  <div
+                    key={slotNum}
+                    className="border-2 border-black bg-white p-5 shadow-[4px_4px_0px_0px_#000] flex flex-col justify-between"
+                  >
+                    <div>
+                      {/* Slot Card Header */}
+                      <div className="pb-3 border-b-2 border-black flex items-center justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#FF4500]" />
+                            <span className="text-xs font-black uppercase font-mono tracking-wider text-black">
+                              {label}
                             </span>
-                          </label>
+                          </div>
+                          <span className="text-[10px] text-gray-500 font-mono block">
+                            {sublabel}
+                          </span>
+                        </div>
+                        <span className="text-xs font-mono font-black bg-black text-white px-2 py-0.5 shadow-[2px_2px_0px_0px_#FF4500]">
+                          SLOT 0{slotNum}
+                        </span>
+                      </div>
 
-                          {isFeatured && (
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] font-mono text-gray-500 font-bold">
-                                Urutan:
-                              </span>
-                              <input
-                                type="number"
-                                min={1}
-                                max={99}
-                                value={c.lineupOrder || 1}
-                                onChange={(e) =>
-                                  handleOrderChange(
-                                    c.id,
-                                    parseInt(e.target.value, 10) || 1
-                                  )
-                                }
-                                className="w-12 bg-white border border-black p-1 text-xs text-center font-bold font-mono"
-                              />
-                              <div className="flex flex-col">
-                                <button
-                                  type="button"
-                                  onClick={() => handleMoveOrder(c.id, "up")}
-                                  className="p-0.5 hover:bg-black hover:text-white border border-black text-gray-700"
-                                  title="Geser Urutan Naik"
-                                >
-                                  <ArrowUp className="w-2.5 h-2.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleMoveOrder(c.id, "down")}
-                                  className="p-0.5 hover:bg-black hover:text-white border border-black text-gray-700"
-                                  title="Geser Urutan Turun"
-                                >
-                                  <ArrowDown className="w-2.5 h-2.5" />
-                                </button>
+                      {/* Dropdown Selector */}
+                      <div className="mt-3">
+                        <label className="text-[11px] font-mono font-bold text-gray-700 block mb-1.5 uppercase">
+                          Pilih Komika:
+                        </label>
+                        <select
+                          value={selectedId}
+                          onChange={(e) => setSelectedId(e.target.value)}
+                          className="w-full bg-white border-2 border-black p-2 text-xs font-mono font-bold text-black focus:outline-none focus:ring-2 focus:ring-[#FF4500] shadow-[2px_2px_0px_0px_#000]"
+                        >
+                          <option value="">-- Kosongkan Posisi Ini --</option>
+                          {comediansList.map((c) => {
+                            const isPickedInOther =
+                              (slotNum !== 1 && selectedSlot1Id === c.id) ||
+                              (slotNum !== 2 && selectedSlot2Id === c.id) ||
+                              (slotNum !== 3 && selectedSlot3Id === c.id);
+
+                            return (
+                              <option key={c.id} value={c.id}>
+                                {c.stageName} ({c.realName}) - {c.comedyStyle || "Stand-up"}
+                                {isPickedInOther ? " ⚠️ (Dipilih di slot lain)" : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      {/* Preview Body */}
+                      <div className="mt-4">
+                        {comedian ? (
+                          <div className="border border-black bg-[#FFF8F6] p-3.5 space-y-3">
+                            <div className="flex items-start gap-3">
+                              <div className="relative w-20 h-20 bg-black border-2 border-black overflow-hidden shrink-0 shadow-[2px_2px_0px_0px_#000]">
+                                {comedian.avatarUrl ? (
+                                  <Image
+                                    src={comedian.avatarUrl}
+                                    alt={comedian.stageName}
+                                    fill
+                                    className="object-cover filter grayscale contrast-125 hover:grayscale-0 transition-all"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 font-bold text-xs bg-gray-900">
+                                    <ImageIcon className="w-6 h-6 mb-1 text-gray-500" />
+                                    <span className="text-[8px] font-mono">NO PIC</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-black text-sm text-gray-900 font-mono truncate">
+                                    {comedian.stageName}
+                                  </span>
+                                  <span className="text-[10px] font-mono px-1.5 py-0.5 bg-black text-white font-bold">
+                                    {comedian.comedyStyle || "Stand-up"}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-gray-600 block truncate mt-0.5 font-mono">
+                                  {comedian.realName}
+                                </span>
+                                <p className="text-[11px] text-gray-700 line-clamp-2 mt-1.5 italic font-serif">
+                                  &quot;{comedian.punchline || comedian.bio || "Standupindo Timika Comedian"}&quot;
+                                </p>
                               </div>
                             </div>
-                          )}
-                        </div>
 
-                        {/* Headshot & Profile Info */}
-                        <div className="mt-3 flex items-start gap-3">
-                          <div className="relative w-16 h-16 bg-black border-2 border-black overflow-hidden shrink-0">
-                            {c.avatarUrl ? (
-                              <Image
-                                src={c.avatarUrl}
-                                alt={c.stageName}
-                                fill
-                                className="object-cover filter grayscale contrast-125 hover:grayscale-0 transition-all"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 font-bold text-xs bg-gray-900">
-                                <ImageIcon className="w-5 h-5 mb-0.5" />
-                                <span className="text-[9px]">NO PIC</span>
+                            {!comedian.avatarUrl && (
+                              <div className="p-2 bg-amber-50 border border-amber-300 text-amber-900 text-[10px] font-mono flex items-center justify-between gap-1">
+                                <span>⚠️ Belum ada foto profil</span>
+                                <Link
+                                  href="/comedians"
+                                  className="text-black font-bold underline"
+                                >
+                                  Upload Foto →
+                                </Link>
                               </div>
                             )}
-                          </div>
 
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-sm text-gray-900 font-mono truncate">
-                                {c.stageName}
-                              </span>
-                              <span className="text-[10px] font-mono px-1.5 py-0.2 bg-black text-white font-bold">
-                                {c.comedyStyle}
+                            <div className="pt-2 border-t border-gray-300 flex items-center justify-between text-[10px] font-mono text-gray-600">
+                              <span>{comedian.totalOpenMic || 0} Sets Panggung</span>
+                              <span className={comedian.isActive ? "text-emerald-700 font-bold" : "text-gray-400"}>
+                                {comedian.isActive ? "● Aktif di Web" : "○ Nonaktif"}
                               </span>
                             </div>
-                            <span className="text-xs text-gray-500 block truncate mt-0.5">
-                              {c.realName}
-                            </span>
-                            <p className="text-[11px] text-gray-600 line-clamp-2 mt-1 italic">
-                              &quot;{c.punchline || c.bio}&quot;
-                            </p>
                           </div>
-                        </div>
-
-                        {/* Photo Source Notice */}
-                        {!c.avatarUrl && (
-                          <div className="mt-2.5 p-1.5 bg-amber-50 border border-amber-300 text-amber-900 text-[10px] font-mono flex items-center justify-between gap-1">
-                            <span>Foto belum disetel di profil</span>
-                            <Link
-                              href="/comedians"
-                              className="text-black font-bold underline"
-                            >
-                              Pasang Foto →
-                            </Link>
+                        ) : (
+                          <div className="border-2 border-dashed border-gray-300 p-8 text-center bg-gray-50">
+                            <ImageIcon className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                            <p className="text-xs font-mono font-bold text-gray-500">
+                              Slot Kosong
+                            </p>
+                            <p className="text-[11px] font-mono text-gray-400 mt-1">
+                              Pilih komika dari dropdown di atas untuk mengisi {label}.
+                            </p>
                           </div>
                         )}
                       </div>
-
-                      {/* Footer Badge */}
-                      <div className="mt-3 pt-2 border-t border-gray-200 flex items-center justify-between text-[10px] font-mono text-gray-500">
-                        <span>{c.totalOpenMic} Sets Panggung</span>
-                        <span className={c.isActive ? "text-emerald-700 font-bold" : "text-gray-400"}>
-                          {c.isActive ? "● Aktif di Web" : "○ Nonaktif"}
-                        </span>
-                      </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
 
-          {/* Bottom Save Reminder */}
-          <div className="mt-6 pt-4 border-t-2 border-black flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <span className="text-xs text-gray-600 font-mono">
-              💡 Perubahan pilihan dan urutan komika akan langsung terlihat di beranda <code>/</code> seksi THE LINEUP setelah disimpan.
-            </span>
+                    {/* Slot Footer Action */}
+                    <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between">
+                      {selectedId ? (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId("")}
+                          className="text-[11px] font-mono font-bold text-red-600 hover:text-red-800 hover:underline cursor-pointer"
+                        >
+                          ✕ Kosongkan Slot {slotNum}
+                        </button>
+                      ) : (
+                        <span className="text-[11px] font-mono text-gray-400">
+                          Belum ada komika terpilih
+                        </span>
+                      )}
+                      <span className="text-[10px] font-mono text-gray-500 font-bold">
+                        Tampil di Kartu #{slotNum}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Bottom Save Reminder & Summary */}
+          <div className="mt-6 pt-4 border-t-2 border-black flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#FFF8F6] p-4 border border-black shadow-[2px_2px_0px_0px_#000]">
+            <div className="text-xs font-mono text-gray-700 flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
+              <span className="font-bold text-black uppercase">Konfigurasi Saat Ini:</span>
+              <span className="font-bold text-[#FF4500]">
+                #1 {comediansList.find((c) => c.id === selectedSlot1Id)?.stageName || "(Kosong)"}
+              </span>
+              <span className="text-gray-400 font-bold">→</span>
+              <span className="font-bold text-[#FF4500]">
+                #2 {comediansList.find((c) => c.id === selectedSlot2Id)?.stageName || "(Kosong)"}
+              </span>
+              <span className="text-gray-400 font-bold">→</span>
+              <span className="font-bold text-[#FF4500]">
+                #3 {comediansList.find((c) => c.id === selectedSlot3Id)?.stageName || "(Kosong)"}
+              </span>
+            </div>
+
             <button
               type="button"
               disabled={isSavingLineup || loadingComedians}
               onClick={handleSaveLineup}
-              className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-black hover:bg-[#FF4500] text-white text-xs font-mono font-bold border border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-black hover:bg-[#FF4500] text-white text-xs font-mono font-bold border border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer disabled:opacity-50 shrink-0"
             >
               {isSavingLineup ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
                 <Check className="w-3.5 h-3.5" />
               )}
-              <span>{isSavingLineup ? "Menyimpan..." : "SIMPAN KONFIGURASI LINEUP"}</span>
+              <span>{isSavingLineup ? "Menyimpan..." : "SIMPAN 3 KOMIKA LINEUP"}</span>
             </button>
           </div>
         </div>
