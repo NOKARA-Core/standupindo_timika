@@ -13,7 +13,7 @@ import {
 import { Mic2, Award, Zap, Users, AlertCircle, Sparkles } from "lucide-react";
 
 export interface ComedyStyleDistItem {
-  style: string;
+  genre: string;
   count: number;
 }
 
@@ -41,7 +41,7 @@ function StyleTooltip({ active, payload }: any) {
       <div className="bg-white border-2 border-black p-3 text-xs font-mono shadow-[3px_3px_0px_0px_#000]">
         <p className="font-black text-black uppercase pb-1 border-b border-black mb-1.5 flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 bg-[#FFD700] border border-black inline-block" />
-          {data.style}
+          {data.genre}
         </p>
         <div className="text-gray-700">
           Jumlah Komika: <span className="font-black text-black">{data.count} Talent</span>
@@ -177,7 +177,7 @@ export function TalentRosterAnalytics({
                       tickLine={false}
                     />
                     <YAxis
-                      dataKey="style"
+                      dataKey="genre"
                       type="category"
                       width={100}
                       tick={{ fill: "#000000", fontSize: 11, fontFamily: "monospace", fontWeight: 700 }}

@@ -148,7 +148,7 @@ async function getDashboardData(role: AdminRole) {
       // 8. Distribusi Comedy Style
       sql`
         SELECT 
-          comedy_style as style,
+          comedy_style as genre,
           count(*)::int as count
         FROM comedians
         WHERE comedy_style IS NOT NULL AND TRIM(comedy_style) != ''
