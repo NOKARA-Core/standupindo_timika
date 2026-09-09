@@ -188,10 +188,12 @@ export function TalentsCatalogClient({
                       href={bookingUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full py-3 bg-[#FF4500] hover:bg-[#281812] text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
+                      className="group w-full py-3 bg-[#FF4500] hover:bg-[#281812] text-white hover:text-white font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      <MessageCircle className="w-4 h-4 text-white" />
-                      <span>BOOK / CONTACT</span>
+                      <MessageCircle className="w-4 h-4 text-white group-hover:text-white transition-colors" />
+                      <span className="text-white group-hover:text-white transition-colors">
+                        BOOK / CONTACT
+                      </span>
                     </a>
                   </div>
                 </article>
