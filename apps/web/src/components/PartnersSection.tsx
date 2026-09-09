@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { Handshake } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
-import { WebPartnerItem, defaultWebPartners } from "../lib/site-config";
+import { WebPartnerItem } from "../lib/site-config";
 
 interface StaticSponsor {
   name: string;
@@ -38,9 +38,14 @@ export function PartnersSection({
           websiteUrl: s.websiteUrl,
         }));
 
+  // Gandakan set partner agar 50% track lebar dan looping berjalan mulus tanpa celah kosong
+  const repeatCount = Math.max(1, Math.ceil(8 / (displayItems.length || 1)));
+  const singleSet = Array(repeatCount).fill(displayItems).flat();
+  const marqueeItems = [...singleSet, ...singleSet];
+
   return (
-    <section className="w-full bg-[#FDFBF7] py-16 px-6 md:px-12 lg:px-20 border-b-2 border-black overflow-hidden">
-      <div className="max-w-[1280px] mx-auto flex flex-col gap-8">
+    <section className="w-full bg-[#FDFBF7] py-16 border-b-2 border-black overflow-hidden select-none">
+      <div className="max-w-[1280px] mx-auto px-6 md:px-12 lg:px-20 mb-8">
         {/* Section Heading */}
         <AnimateReveal variant="slide-left" durationMs={650}>
           <div className="flex items-center gap-4">
@@ -52,62 +57,54 @@ export function PartnersSection({
             </h2>
           </div>
         </AnimateReveal>
+      </div>
 
-        {/* Sponsor Cards Grid with Staggered pop-in */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {displayItems.map((partner, index) => {
-            const cardInner = (
-              <div className="bg-white border-2 border-black p-4 md:p-6 flex flex-col items-center justify-center text-center h-32 shadow-[6px_6px_0px_0px_#000000] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[3px_3px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all group w-full">
+      {/* Marquee Track Container with Edge Masking */}
+      <div className="relative w-full overflow-hidden py-4">
+        {/* Edge Masking / Vignette Neo-Brutalist */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-[#FDFBF7] to-transparent z-10" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-[#FDFBF7] to-transparent z-10" />
+
+        {/* Marquee Track Hardware-Accelerated */}
+        <div className="animate-marquee-infinite flex items-center gap-6 will-change-transform translate-z-0">
+          {marqueeItems.map((partner, index) => {
+            const cardContent = (
+              <div className="bg-white border-4 border-black shadow-[4px_4px_0px_0px_#000] rounded-none px-8 py-4 h-24 min-w-[200px] flex items-center justify-center transition-all duration-150 group cursor-pointer hover:grayscale-0 hover:opacity-100 hover:-rotate-2 hover:scale-105 hover:shadow-[6px_6px_0px_0px_#FF4500]">
                 {partner.logoUrl ? (
-                  <>
-                    <div className="relative w-full h-14 flex items-center justify-center">
-                      <Image
-                        src={partner.logoUrl}
-                        alt={partner.name}
-                        fill
-                        unoptimized
-                        className="object-contain filter grayscale contrast-125 group-hover:grayscale-0 transition-all duration-200"
-                      />
-                    </div>
-                    <span className="font-['Space_Mono',monospace] text-[10px] md:text-xs font-bold text-[#5C4037] uppercase tracking-widest mt-1.5 truncate max-w-full">
-                      {partner.name}
-                    </span>
-                  </>
+                  <div className="relative w-36 h-12 flex items-center justify-center">
+                    <Image
+                      src={partner.logoUrl}
+                      alt={partner.name}
+                      fill
+                      unoptimized
+                      className="object-contain grayscale contrast-125 opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-150"
+                    />
+                  </div>
                 ) : (
-                  <>
-                    <span className="font-['Anton',sans-serif] text-xl md:text-2xl text-[#281812] uppercase tracking-wider block truncate max-w-full">
-                      {partner.name}
-                    </span>
-                    <span className="font-['Space_Mono',monospace] text-[10px] md:text-xs font-bold text-[#5C4037] uppercase tracking-widest mt-1">
-                      {"category" in partner && partner.category
-                        ? (partner as { category: string }).category
-                        : "OFFICIAL PARTNER"}
-                    </span>
-                  </>
+                  <span className="font-['Anton',sans-serif] text-xl text-[#281812] uppercase tracking-wider block whitespace-nowrap grayscale contrast-125 opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-150">
+                    {partner.name}
+                  </span>
                 )}
               </div>
             );
 
-            return (
-              <AnimateReveal
-                key={partner.id || index}
-                variant="fade-up"
-                delayMs={index * 80}
-                durationMs={650}
+            return partner.websiteUrl ? (
+              <a
+                key={`${partner.id || partner.name}-${index}`}
+                href={partner.websiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 block focus:outline-none"
               >
-                {partner.websiteUrl ? (
-                  <a
-                    href={partner.websiteUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block focus:outline-none"
-                  >
-                    {cardInner}
-                  </a>
-                ) : (
-                  cardInner
-                )}
-              </AnimateReveal>
+                {cardContent}
+              </a>
+            ) : (
+              <div
+                key={`${partner.id || partner.name}-${index}`}
+                className="shrink-0"
+              >
+                {cardContent}
+              </div>
             );
           })}
         </div>

@@ -88,24 +88,24 @@ a {
   box-shadow: 2px 2px 0px 0px #000000 !important;
 }
 
-/* Seamless Continuous Marquee Ticker (Left to Right Punchline) */
-@keyframes marquee-ltr {
+/* Seamless Continuous Marquee Ticker */
+@keyframes marquee-scroll {
   0% {
-    transform: translateX(-50%);
+    transform: translateX(0%);
   }
   100% {
-    transform: translateX(0%);
+    transform: translateX(-50%);
   }
 }
 
-.animate-marquee-seamless {
+.animate-marquee-infinite {
   display: flex;
   width: max-content;
-  animation: marquee-ltr 24s linear infinite;
+  animation: marquee-scroll 25s linear infinite;
   will-change: transform;
 }
 
-.animate-marquee-seamless:hover {
+.animate-marquee-infinite:hover {
   animation-play-state: paused;
 }
 
