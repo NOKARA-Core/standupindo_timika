@@ -43,6 +43,7 @@ export default function StoreAdminPage() {
   const [category, setCategory] = useState("T-Shirt");
   const [price, setPrice] = useState<number>(150000);
   const [stock, setStock] = useState<number>(20);
+  const [status, setStatus] = useState<string>("in_stock");
   const [badge, setBadge] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -105,6 +106,7 @@ export default function StoreAdminPage() {
     setCategory("T-Shirt");
     setPrice(150000);
     setStock(25);
+    setStatus("in_stock");
     setBadge("");
     setDescription("");
     setImageUrl("");
@@ -119,6 +121,14 @@ export default function StoreAdminPage() {
     setCategory(item.category);
     setPrice(item.price);
     setStock(item.stock);
+    setStatus(
+      item.status ||
+        (item.badge?.toUpperCase() === "COMING SOON"
+          ? "coming_soon"
+          : item.stock <= 0
+          ? "out_of_stock"
+          : "in_stock")
+    );
     setBadge(item.badge || "");
     setDescription(item.description || "");
     setImageUrl(item.imageUrl || "");
@@ -181,6 +191,7 @@ export default function StoreAdminPage() {
         badge: badge.trim() || null,
         description: description.trim() || null,
         imageUrl: imageUrl.trim() || null,
+        status: status || (Number(stock) <= 0 ? "out_of_stock" : "in_stock"),
         isActive,
       };
 
@@ -536,19 +547,21 @@ export default function StoreAdminPage() {
                         </span>
                       </td>
 
-                      {/* Active Status */}
-                      <td className="p-3 align-middle text-center">
-                        <button
-                          type="button"
-                          onClick={() => toggleStatus(item)}
-                          className={`px-2 py-0.5 font-mono text-[10px] font-bold border border-black cursor-pointer transition-colors ${
-                            item.isActive
-                              ? "bg-emerald-400 text-black"
-                              : "bg-gray-300 text-gray-600"
-                          }`}
-                        >
-                          {item.isActive ? "AKTIF" : "OFF"}
-                        </button>
+                      {/* Status Indicator */}
+                      <td className="p-3 align-middle text-center whitespace-nowrap">
+                        {item.status === "coming_soon" || item.badge?.toUpperCase() === "COMING SOON" ? (
+                          <span className="inline-block px-2.5 py-1 bg-[#DC2626] text-white border border-black font-mono text-[10px] font-black uppercase shadow-[1px_1px_0px_0px_#000]">
+                            COMING SOON
+                          </span>
+                        ) : item.stock <= 0 || item.status === "out_of_stock" || !item.isActive ? (
+                          <span className="inline-block px-2.5 py-1 bg-zinc-800 text-white border border-black font-mono text-[10px] font-black uppercase shadow-[1px_1px_0px_0px_#000]">
+                            OUT OF STOCK / CLOSED
+                          </span>
+                        ) : (
+                          <span className="inline-block px-2.5 py-1 bg-emerald-400 text-black border border-black font-mono text-[10px] font-bold uppercase shadow-[1px_1px_0px_0px_#000]">
+                            IN STOCK
+                          </span>
+                        )}
                       </td>
 
                       {/* Actions & Mark As Sold */}
@@ -673,7 +686,7 @@ export default function StoreAdminPage() {
                 </div>
               </div>
 
-              {/* Price & Stock */}
+              {/* Price, Stock & Status */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-mono font-bold uppercase mb-1">
@@ -701,10 +714,45 @@ export default function StoreAdminPage() {
                     min={0}
                     placeholder="25"
                     value={stock}
-                    onChange={(e) => setStock(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setStock(val);
+                      if (val <= 0 && status === "in_stock") {
+                        setStatus("out_of_stock");
+                      } else if (val > 0 && status === "out_of_stock") {
+                        setStatus("in_stock");
+                      }
+                    }}
                     className="w-full bg-gray-50 border-2 border-black p-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#FF4500]"
                   />
                 </div>
+              </div>
+
+              {/* Status Ketersediaan Manual Override */}
+              <div>
+                <label className="block text-xs font-mono font-bold uppercase mb-1">
+                  Status Ketersediaan Produk *
+                </label>
+                <select
+                  value={status}
+                  onChange={(e) => {
+                    const newStatus = e.target.value;
+                    setStatus(newStatus);
+                    if (newStatus === "out_of_stock") {
+                      setStock(0);
+                    } else if (newStatus === "in_stock" && stock <= 0) {
+                      setStock(10);
+                    }
+                  }}
+                  className="w-full bg-gray-50 border-2 border-black p-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#FF4500]"
+                >
+                  <option value="in_stock">Ready / In Stock (Stok &gt; 0)</option>
+                  <option value="out_of_stock">Out of Stock / Sold Out (Habis / Closed)</option>
+                  <option value="coming_soon">Coming Soon (Belum Siap Jual)</option>
+                </select>
+                <p className="text-[10px] text-gray-500 font-mono mt-1">
+                  Jika stok diisi 0 atau status &apos;Out of Stock&apos;, tombol pemesanan WA di web otomatis digantikan badge &apos;SOLD OUT / CLOSED&apos;.
+                </p>
               </div>
 
               {/* Description */}

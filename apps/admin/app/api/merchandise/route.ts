@@ -11,6 +11,7 @@ export interface MerchItem {
   imageUrl?: string | null;
   description?: string;
   badge?: string;
+  status?: string;
   isActive: boolean;
   createdAt?: string;
 }
@@ -27,10 +28,15 @@ export async function ensureMerchandiseTable() {
       image_url TEXT,
       description TEXT,
       badge VARCHAR(100),
+      status VARCHAR(50) DEFAULT 'in_stock',
       is_active BOOLEAN NOT NULL DEFAULT true,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
+  `;
+
+  await sql`
+    ALTER TABLE merchandise ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'in_stock'
   `;
 
   const count = await sql`SELECT count(*)::int as total FROM merchandise`;
@@ -126,6 +132,7 @@ export async function GET() {
         image_url as "imageUrl",
         description,
         badge,
+        COALESCE(status, 'in_stock') as status,
         is_active as "isActive",
         created_at as "createdAt"
       FROM merchandise
@@ -155,6 +162,7 @@ export async function POST(request: Request) {
     const imageUrl = body.imageUrl || null;
     const description = String(body.description || "").trim();
     const badge = String(body.badge || "").trim() || null;
+    const status = body.status || (stock <= 0 ? "out_of_stock" : "in_stock");
     const isActive = typeof body.isActive === "boolean" ? body.isActive : true;
 
     if (!name) {
@@ -166,9 +174,9 @@ export async function POST(request: Request) {
 
     const inserted = await sql`
       INSERT INTO merchandise (
-        id, name, price, category, stock, image_url, description, badge, is_active, updated_at
+        id, name, price, category, stock, image_url, description, badge, status, is_active, updated_at
       ) VALUES (
-        ${id}, ${name}, ${price}, ${category}, ${stock}, ${imageUrl}, ${description}, ${badge}, ${isActive}, CURRENT_TIMESTAMP
+        ${id}, ${name}, ${price}, ${category}, ${stock}, ${imageUrl}, ${description}, ${badge}, ${status}, ${isActive}, CURRENT_TIMESTAMP
       )
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
@@ -178,10 +186,11 @@ export async function POST(request: Request) {
         image_url = COALESCE(EXCLUDED.image_url, merchandise.image_url),
         description = EXCLUDED.description,
         badge = EXCLUDED.badge,
+        status = EXCLUDED.status,
         is_active = EXCLUDED.is_active,
         updated_at = CURRENT_TIMESTAMP
       RETURNING 
-        id, name, price::float as price, category, stock, image_url as "imageUrl", description, badge, is_active as "isActive", created_at as "createdAt"
+        id, name, price::float as price, category, stock, image_url as "imageUrl", description, badge, status, is_active as "isActive", created_at as "createdAt"
     `;
 
     revalidatePath("/store");
@@ -201,7 +210,7 @@ export async function PUT(request: Request) {
   try {
     await ensureMerchandiseTable();
     const body = await request.json();
-    const { id, name, price, category, stock, imageUrl, description, badge, isActive } = body;
+    const { id, name, price, category, stock, imageUrl, description, badge, status, isActive } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -221,11 +230,12 @@ export async function PUT(request: Request) {
         image_url = CASE WHEN ${imageUrl !== undefined} THEN ${imageUrl} ELSE image_url END,
         description = COALESCE(${description}, description),
         badge = COALESCE(${badge}, badge),
+        status = COALESCE(${status}, status),
         is_active = COALESCE(${isActive}, is_active),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ${id}
       RETURNING 
-        id, name, price::float as price, category, stock, image_url as "imageUrl", description, badge, is_active as "isActive", created_at as "createdAt"
+        id, name, price::float as price, category, stock, image_url as "imageUrl", description, badge, status, is_active as "isActive", created_at as "createdAt"
     `;
 
     if (updated.length === 0) {

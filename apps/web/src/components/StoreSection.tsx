@@ -67,6 +67,15 @@ export function StoreSection({
                 ? `Rp ${product.price.toLocaleString("id-ID")}`
                 : product.price;
 
+            const productStock = (product as any).stock;
+            const isComingSoon =
+              (product as any).status === "coming_soon" ||
+              product.badge?.toUpperCase() === "COMING SOON";
+            const isOutOfStock =
+              !isComingSoon &&
+              ((productStock !== undefined && productStock <= 0) ||
+                (product as any).status === "out_of_stock");
+
             const orderMessage = `Halo StandUP INDO Timika, saya ingin memesan merchandise: ${product.name} seharga ${displayPrice}. Apakah stok masih tersedia?`;
             const waOrderUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(orderMessage)}`;
 
@@ -92,10 +101,29 @@ export function StoreSection({
                       </div>
                     )}
 
-                    {/* Top Badge */}
-                    <span className="px-2 py-0.5 bg-black text-white font-['Space_Mono',monospace] text-[10px] font-bold uppercase tracking-wider self-start z-10 relative">
-                      {product.badge || "OFFICIAL"}
-                    </span>
+                    {/* Top Badges */}
+                    <div className="flex flex-col gap-1 self-start z-10 relative">
+                      <span className="px-2 py-0.5 bg-black text-white font-['Space_Mono',monospace] text-[10px] font-bold uppercase tracking-wider">
+                        {product.badge || "OFFICIAL"}
+                      </span>
+                      {productStock !== undefined && (
+                        <span
+                          className={`px-1.5 py-0.2 font-['Space_Mono',monospace] text-[9px] font-bold border border-black uppercase ${
+                            isComingSoon
+                              ? "bg-[#DC2626] text-white"
+                              : isOutOfStock
+                              ? "bg-zinc-800 text-white"
+                              : "bg-[#FFE9E3] text-[#A83300]"
+                          }`}
+                        >
+                          {isComingSoon
+                            ? "COMING SOON"
+                            : isOutOfStock
+                            ? "SOLD OUT"
+                            : `Stok: ${productStock} pcs`}
+                        </span>
+                      )}
+                    </div>
 
                     {/* Default Mock typography */}
                     {!hasCustomImage && (
@@ -132,15 +160,25 @@ export function StoreSection({
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-center gap-3">
-                      <a
-                        href={waOrderUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 w-full py-3 bg-[#10B981] hover:bg-emerald-400 text-black font-['Space_Mono',monospace] text-xs font-bold tracking-wider uppercase border-2 border-black shadow-[3px_3px_0px_0px_#000000] active:translate-x-[1px] active:translate-y-[1px] transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <MessageCircle className="w-4 h-4 text-black" />
-                        <span>ORDER WA</span>
-                      </a>
+                      {isComingSoon ? (
+                        <div className="flex-1 w-full py-3 bg-[#DC2626] text-white font-['Space_Mono',monospace] text-xs font-black tracking-wider uppercase border-2 border-black shadow-[3px_3px_0px_0px_#000000] rotate-[-2deg] select-none cursor-not-allowed text-center">
+                          COMING SOON
+                        </div>
+                      ) : isOutOfStock ? (
+                        <div className="flex-1 w-full py-3 bg-zinc-800 text-white font-['Space_Mono',monospace] text-xs font-black tracking-wider uppercase border-2 border-black shadow-[3px_3px_0px_0px_#000000] rotate-[-2deg] select-none cursor-not-allowed text-center">
+                          SOLD OUT
+                        </div>
+                      ) : (
+                        <a
+                          href={waOrderUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 w-full py-3 bg-[#10B981] hover:bg-emerald-400 text-black font-['Space_Mono',monospace] text-xs font-bold tracking-wider uppercase border-2 border-black shadow-[3px_3px_0px_0px_#000000] active:translate-x-[1px] active:translate-y-[1px] transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <MessageCircle className="w-4 h-4 text-black" />
+                          <span>ORDER WA</span>
+                        </a>
+                      )}
 
                       <Link
                         href="/store"

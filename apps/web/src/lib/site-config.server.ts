@@ -32,6 +32,7 @@ export interface DBMerchandise {
   imageUrl?: string | null;
   description?: string | null;
   badge?: string | null;
+  status?: string | null;
   isActive: boolean;
 }
 
@@ -318,6 +319,7 @@ export async function getMerchandiseFromDB(): Promise<DBMerchandise[]> {
         image_url as "imageUrl",
         description,
         badge,
+        COALESCE(status, 'in_stock') as status,
         is_active as "isActive"
       FROM merchandise
       WHERE is_active = true
