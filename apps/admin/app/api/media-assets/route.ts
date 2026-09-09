@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSql } from "../../../src/lib/db";
 import { getSiteConfig } from "../../../src/lib/site-config.server";
 import { deleteAsset } from "../../../src/lib/storage";
+import { requireAdminSession } from "../../../src/lib/auth";
 
 async function syncMediaAssetsFromConfig() {
   const sql = getSql();
@@ -74,6 +75,9 @@ async function syncMediaAssetsFromConfig() {
 
 export async function GET() {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     await syncMediaAssetsFromConfig();
     const sql = getSql();
     const rows = await sql`
@@ -99,6 +103,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const body = await request.json();
     const { name, url, type, size } = body;
 
@@ -137,6 +144,9 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     let targetUrl = searchParams.get("url");
@@ -180,3 +190,4 @@ export async function DELETE(request: Request) {
     );
   }
 }
+

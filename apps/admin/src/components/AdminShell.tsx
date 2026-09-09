@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { AuthProvider } from "../context/AuthContext";
@@ -48,8 +48,14 @@ function AccessDeniedBanner() {
 }
 
 function AdminShellInner({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Standalone layout for login page
+  if (pathname === "/login") {
+    return <main className="min-h-screen">{children}</main>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row text-gray-900 font-sans antialiased">

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 import { getSql } from "../../../src/lib/db";
 import { revalidatePath } from "next/cache";
+import { requireAdminSession } from "../../../src/lib/auth";
 
 // Configure Cloudinary SDK instance server-side
 const cloudName =
@@ -26,7 +27,11 @@ if (cloudName && apiKey && apiSecret) {
  */
 export async function GET(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const { searchParams } = new URL(request.url);
+
     const cursor = searchParams.get("next_cursor");
     const maxResultsParam = searchParams.get("max_results");
     const pageParam = searchParams.get("page");
@@ -141,6 +146,9 @@ export async function GET(request: Request) {
  */
 export async function DELETE(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const body = await request.json().catch(() => ({}));
     const { searchParams } = new URL(request.url);
     const public_id = body.public_id || searchParams.get("public_id");

@@ -8,7 +8,7 @@ export async function POST() {
     const response = NextResponse.json({
       success: true,
       message: "Berhasil logout.",
-      redirectUrl: `${webUrl}/login`,
+      redirectUrl: "/login",
     });
 
     // Delete session cookie

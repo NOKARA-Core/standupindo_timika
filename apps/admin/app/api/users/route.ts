@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSql } from "../../../src/lib/db";
+import { requireAdminSession } from "../../../src/lib/auth";
 
 // Declare Bun global for TypeScript
 declare const Bun: any;
@@ -15,6 +16,9 @@ export interface AdminUserItem {
 
 export async function GET() {
   try {
+    const auth = await requireAdminSession("superadmin");
+    if (auth.response) return auth.response;
+
     const sql = getSql();
     const rows = await sql`
       SELECT 
@@ -38,8 +42,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminSession("superadmin");
+    if (auth.response) return auth.response;
+
     const body = await request.json();
-    const { name, email, password, role = "superadmin" } = body;
+    const { name, email, password, role = "curator" } = body;
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -47,6 +54,9 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    // Role validation
+    const validRole = role === "superadmin" ? "superadmin" : "curator";
 
     const sql = getSql();
 
@@ -69,7 +79,7 @@ export async function POST(request: Request) {
 
     const inserted = await sql`
       INSERT INTO admin_users (id, name, email, password_hash, role)
-      VALUES (${id}, ${name}, ${email}, ${passwordHash}, ${role})
+      VALUES (${id}, ${name}, ${email}, ${passwordHash}, ${validRole})
       RETURNING id, name, email, role, created_at as "createdAt"
     `;
 
@@ -87,11 +97,22 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const auth = await requireAdminSession("superadmin");
+    if (auth.response) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
     if (!id) {
       return NextResponse.json({ error: "Missing user id" }, { status: 400 });
+    }
+
+    // Prevent self-deletion
+    if (auth.user && id === auth.user.id) {
+      return NextResponse.json(
+        { error: "Tidak dapat menghapus akun Anda sendiri saat sedang login." },
+        { status: 400 }
+      );
     }
 
     const sql = getSql();
@@ -118,3 +139,4 @@ export async function DELETE(request: Request) {
     );
   }
 }
+

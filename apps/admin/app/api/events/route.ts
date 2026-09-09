@@ -2,9 +2,13 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSql } from "../../../src/lib/db";
 import { EventItem } from "../../../src/lib/mock-data";
+import { requireAdminSession } from "../../../src/lib/auth";
 
 export async function GET() {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const sql = getSql();
     const rows = await sql`
       SELECT 
@@ -34,6 +38,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const body = (await request.json()) as Partial<EventItem>;
     const sql = getSql();
 
@@ -89,6 +96,9 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const { id, status } = await request.json();
     if (!id || !status) {
       return NextResponse.json({ error: "Missing id or status" }, { status: 400 });
@@ -114,6 +124,9 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 

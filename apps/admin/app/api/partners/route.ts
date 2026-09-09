@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSql } from "../../../src/lib/db";
 import { deleteAsset } from "../../../src/lib/storage";
+import { requireAdminSession } from "../../../src/lib/auth";
 
 // Ensure partners table exists
 async function ensurePartnersTable() {
@@ -62,6 +63,9 @@ async function ensurePartnersTable() {
 
 export async function GET() {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const sql = getSql();
     await ensurePartnersTable();
 
@@ -83,6 +87,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const body = await request.json();
     const { name, logoUrl, websiteUrl, sortOrder, isActive } = body;
 
@@ -127,6 +134,9 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const body = await request.json();
     const { id, name, logoUrl, websiteUrl, sortOrder, isActive } = body;
 
@@ -171,6 +181,9 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 

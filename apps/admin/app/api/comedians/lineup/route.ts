@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSql } from "../../../../src/lib/db";
+import { requireAdminSession } from "../../../../src/lib/auth";
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const body = await request.json();
     const sql = getSql();
 

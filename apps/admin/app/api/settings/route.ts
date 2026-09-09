@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSql } from "../../../src/lib/db";
+import { requireAdminSession } from "../../../src/lib/auth";
 
 export async function ensureSettingsTable() {
   const sql = getSql();
@@ -33,6 +34,11 @@ export async function ensureSettingsTable() {
 
 export async function GET() {
   try {
+    const auth = await requireAdminSession();
+    if (!auth.ok) {
+      return auth.response;
+    }
+
     await ensureSettingsTable();
     const sql = getSql();
     const rows = await sql`
@@ -63,6 +69,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminSession("superadmin");
+    if (!auth.ok) {
+      return auth.response;
+    }
+
     await ensureSettingsTable();
     const body = await request.json();
     const sql = getSql();

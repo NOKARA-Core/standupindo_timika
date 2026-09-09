@@ -2,12 +2,18 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSql } from "../../../../../src/lib/db";
 import { ensureMerchandiseTable } from "../../route";
+import { requireAdminSession } from "../../../../../src/lib/auth";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAdminSession("superadmin");
+    if (!auth.ok) {
+      return auth.response;
+    }
+
     await ensureMerchandiseTable();
     const resolvedParams = await params;
     const { id } = resolvedParams;

@@ -1,14 +1,21 @@
 import { NextResponse } from "next/server";
 import { SiteAssetsConfig } from "../../../src/lib/site-config";
 import { getSiteConfig, saveSiteConfig } from "../../../src/lib/site-config.server";
+import { requireAdminSession } from "../../../src/lib/auth";
 
 export async function GET() {
+  const auth = await requireAdminSession();
+  if (auth.response) return auth.response;
+
   const config = await getSiteConfig();
   return NextResponse.json(config);
 }
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminSession("superadmin");
+    if (auth.response) return auth.response;
+
     const body = (await request.json()) as Partial<SiteAssetsConfig>;
     const current = await getSiteConfig();
 
@@ -40,3 +47,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

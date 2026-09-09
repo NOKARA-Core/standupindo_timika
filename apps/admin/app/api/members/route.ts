@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSql } from "../../../src/lib/db";
+import { requireAdminSession } from "../../../src/lib/auth";
 
 // Ensure table exists & initial seed if empty
 async function ensureMembersTable() {
@@ -34,6 +35,9 @@ async function ensureMembersTable() {
 
 export async function GET() {
   try {
+    const auth = await requireAdminSession("superadmin");
+    if (auth.response) return auth.response;
+
     await ensureMembersTable();
     const sql = getSql();
     const rows = await sql`
@@ -53,6 +57,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminSession("superadmin");
+    if (auth.response) return auth.response;
+
     await ensureMembersTable();
     const body = await request.json();
     const sql = getSql();
@@ -101,6 +108,9 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const auth = await requireAdminSession("superadmin");
+    if (auth.response) return auth.response;
+
     await ensureMembersTable();
     const { id, status } = await request.json();
 
@@ -144,6 +154,9 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const auth = await requireAdminSession("superadmin");
+    if (auth.response) return auth.response;
+
     await ensureMembersTable();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
@@ -171,3 +184,4 @@ export async function DELETE(request: Request) {
     );
   }
 }
+

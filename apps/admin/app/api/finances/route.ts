@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSql } from "../../../src/lib/db";
+import { requireAdminSession } from "../../../src/lib/auth";
 
 async function ensureFinancesTable() {
   const sql = getSql();
@@ -34,6 +35,11 @@ async function ensureFinancesTable() {
 
 export async function GET() {
   try {
+    const auth = await requireAdminSession("superadmin");
+    if (!auth.ok) {
+      return auth.response;
+    }
+
     await ensureFinancesTable();
     const sql = getSql();
     const rows = await sql`
@@ -84,6 +90,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminSession("superadmin");
+    if (!auth.ok) {
+      return auth.response;
+    }
+
     await ensureFinancesTable();
     const body = await request.json();
     const sql = getSql();
@@ -139,6 +150,11 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const auth = await requireAdminSession("superadmin");
+    if (!auth.ok) {
+      return auth.response;
+    }
+
     await ensureFinancesTable();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

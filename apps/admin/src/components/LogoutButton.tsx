@@ -39,18 +39,12 @@ export function LogoutButton({
         method: "POST",
       });
       const data = await res.json();
-      const redirectTarget =
-        data.redirectUrl ||
-        process.env.NEXT_PUBLIC_WEB_URL ||
-        "http://localhost:5000/login";
-
-      window.location.href = redirectTarget.includes("/login")
-        ? redirectTarget
-        : `${redirectTarget}/login`;
+      const redirectTarget = data.redirectUrl || "/login";
+      window.location.href = redirectTarget;
     } catch (err) {
       console.error("Logout request failed:", err);
       // Fallback redirect
-      window.location.href = "http://localhost:5000/login";
+      window.location.href = "/login";
     }
   };
 

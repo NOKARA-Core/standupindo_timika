@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { getSql } from "../../../src/lib/db";
+import { requireAdminSession } from "../../../src/lib/auth";
 
 export async function GET() {
   try {
+    const auth = await requireAdminSession("superadmin");
+    if (!auth.ok) {
+      return auth.response;
+    }
+
     const sql = getSql();
 
     // List of core tables to backup

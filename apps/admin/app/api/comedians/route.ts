@@ -2,13 +2,17 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSql } from "../../../src/lib/db";
 import { ComedianItem } from "../../../src/lib/mock-data";
+import { requireAdminSession } from "../../../src/lib/auth";
 
 export async function GET() {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const sql = getSql();
     const rows = await sql`
       SELECT 
-        id,
+        id, 
         real_name as "realName",
         stage_name as "stageName",
         comedy_style as "comedyStyle",
@@ -32,6 +36,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const body = (await request.json()) as Partial<ComedianItem>;
     const sql = getSql();
 
@@ -84,6 +91,9 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const body = await request.json();
     const { id, isActive, avatarUrl, isFeaturedLineup, lineupOrder } = body;
     if (!id) {
@@ -145,6 +155,9 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.response) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
