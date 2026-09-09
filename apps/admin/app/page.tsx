@@ -21,6 +21,12 @@ import { getSql } from "../src/lib/db";
 import { FinanceTrendChart, MonthlyFinanceItem } from "../src/components/analytics/FinanceTrendChart";
 import { EventActivityChart, MonthlyEventItem } from "../src/components/analytics/EventActivityChart";
 import { ContentMerchDistChart, MerchCategoryItem } from "../src/components/analytics/ContentMerchDistChart";
+import {
+  TalentRosterAnalytics,
+  TalentRosterMetrics,
+  ComedyStyleDistItem,
+  TopPerformerItem,
+} from "../src/components/analytics/TalentRosterAnalytics";
 import { RegistrationsList } from "../src/components/RegistrationsList";
 import { AdminRole } from "../src/config/nav";
 
@@ -90,6 +96,9 @@ async function getDashboardData(role: AdminRole) {
       pendingRegRes,
       upcomingEventsRes,
       merchDistRes,
+      styleDistributionRes,
+      topPerformersRes,
+      comedianStatsRes,
     ] = await Promise.all([
       // 1. Total Active Shows (Count dari events WHERE status != 'DRAFT' and != 'CLOSED')
       sql`
@@ -135,6 +144,35 @@ async function getDashboardData(role: AdminRole) {
         WHERE is_active = true
         GROUP BY category
         ORDER BY value DESC
+      `,
+      // 8. Distribusi Comedy Style
+      sql`
+        SELECT 
+          comedy_style as style,
+          count(*)::int as count
+        FROM comedians
+        WHERE comedy_style IS NOT NULL AND TRIM(comedy_style) != ''
+        GROUP BY comedy_style
+        ORDER BY count DESC
+      `,
+      // 9. Top 5 Jam Terbang Komika (Total Sets Panggung)
+      sql`
+        SELECT 
+          stage_name as "stageName",
+          COALESCE(total_open_mic, 0)::int as "totalShows",
+          comedy_style as "comedyStyle"
+        FROM comedians
+        ORDER BY total_open_mic DESC, stage_name ASC
+        LIMIT 5
+      `,
+      // 10. Agregasi Roster Comedians (Total, Aktif, Featured, Rata-rata Shows)
+      sql`
+        SELECT 
+          count(*)::int as total,
+          count(CASE WHEN is_active = true THEN 1 END)::int as active,
+          count(CASE WHEN is_featured_lineup = true THEN 1 END)::int as featured,
+          COALESCE(ROUND(AVG(COALESCE(total_open_mic, 0)), 1), 0)::numeric as avg_shows
+        FROM comedians
       `,
     ]);
 
@@ -230,6 +268,22 @@ async function getDashboardData(role: AdminRole) {
       pendingRegistrationsCount: pendingRegRes[0]?.count || 0,
       upcomingEvents: upcomingEventsRes as unknown as UpcomingEventRow[],
       merchDistribution: merchDistRes as unknown as MerchCategoryItem[],
+      talentMetrics: {
+        totalComedians: comedianStatsRes[0]?.total || 0,
+        activeComedians: comedianStatsRes[0]?.active || 0,
+        featuredComedians: comedianStatsRes[0]?.featured || 0,
+        activePercentage:
+          (comedianStatsRes[0]?.total || 0) > 0
+            ? Math.round(
+                ((comedianStatsRes[0]?.active || 0) /
+                  (comedianStatsRes[0]?.total || 1)) *
+                  100
+              )
+            : 0,
+        avgShowsPerComedian: Number(comedianStatsRes[0]?.avg_shows) || 0,
+        styleDistribution: styleDistributionRes as unknown as ComedyStyleDistItem[],
+        topPerformers: topPerformersRes as unknown as TopPerformerItem[],
+      },
       financeTrend,
       recentTransactions,
       eventActivityTrend,
@@ -248,6 +302,15 @@ async function getDashboardData(role: AdminRole) {
       pendingRegistrationsCount: 0,
       upcomingEvents: [],
       merchDistribution: [],
+      talentMetrics: {
+        totalComedians: 0,
+        activeComedians: 0,
+        featuredComedians: 0,
+        activePercentage: 0,
+        avgShowsPerComedian: 0,
+        styleDistribution: [],
+        topPerformers: [],
+      },
       financeTrend: [],
       recentTransactions: [],
       eventActivityTrend: [],
@@ -433,7 +496,12 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* 3. Quick Widget Tables at Bottom */}
+      {/* 3. Dedicated Talent Roster & Comedy Style Analytics (Recharts - Available for Superadmin & Curator) */}
+      <div>
+        <TalentRosterAnalytics metrics={data.talentMetrics} />
+      </div>
+
+      {/* 4. Quick Widget Tables at Bottom */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Widget 1: Upcoming 3 Events (Left Column) */}
         <div className="lg:col-span-6 bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000]">
