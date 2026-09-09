@@ -17,15 +17,19 @@ export interface ComedianAssetConfig {
   isCustom: boolean;
 }
 
-export interface FlyerAssetConfig {
+export interface DocumentationAssetConfig {
   id: string;
   title: string;
-  date: string;
-  venue: string;
-  details: string;
+  badge?: string;
+  date?: string;
+  venue?: string;
+  details?: string;
   flyerUrl: string | null;
+  imageUrl?: string | null;
   isCustom: boolean;
 }
+
+export type FlyerAssetConfig = DocumentationAssetConfig;
 
 export interface MerchAssetConfig {
   id: string;
@@ -39,9 +43,11 @@ export interface MerchAssetConfig {
 
 export interface SiteAssetsConfig {
   useDynamicAssets: boolean;
+  useDynamicPartners?: boolean;
   hero: HeroAssetConfig;
   comedians: ComedianAssetConfig[];
-  flyers: FlyerAssetConfig[];
+  flyers: DocumentationAssetConfig[];
+  documentation?: DocumentationAssetConfig[];
   merch: MerchAssetConfig[];
 }
 
@@ -87,21 +93,47 @@ export const defaultSiteConfig: SiteAssetsConfig = {
   ],
   flyers: [
     {
-      id: "grind-42",
-      title: "THE GRIND (OPEN MIC)",
-      date: "FRI, OCT 13 - 8 PM",
-      venue: "THE BUNKER",
-      details: "JL. YOS SUDARSO • HOST: RIAN 'THE HAMMER'",
+      id: "doc-origin",
+      title: "FIRST OPEN MIC IN MIMIKA (2018)",
+      badge: "ORIGIN STORY",
+      date: "2018",
+      venue: "WARUNG KOPI YOS SUDARSO",
+      details: "Bermula dari 5 orang berkumpul di warung kopi Jalan Yos Sudarso dengan satu mic kabel.",
       flyerUrl: null,
+      imageUrl: null,
       isCustom: false,
     },
     {
-      id: "neon-night",
-      title: "TIMIKA STANDUP NIGHT",
-      date: "SAT, OCT 14 - 9 PM",
-      venue: "NEON CAFE",
-      details: "SP2 • HOST: TIKA 'NO FILTER'",
+      id: "doc-milestone",
+      title: "100+ JAM TERTAWA",
+      badge: "MILESTONE",
+      date: "150+ SHOWS",
+      venue: "TIMIKA CAFE CIRCUIT",
+      details: "Lebih dari 150 kali open mic digelar di berbagai kafe dan sudut kota Timika.",
       flyerUrl: null,
+      imageUrl: null,
+      isCustom: false,
+    },
+    {
+      id: "doc-network",
+      title: "KOLABORASI KOMIKA NASIONAL",
+      badge: "NETWORK",
+      date: "SPECIAL TOURS",
+      venue: "EME NEME YAUWARE",
+      details: "Membawa nama-nama besar stand-up comedy Indonesia untuk tampil langsung menghibur masyarakat Timika.",
+      flyerUrl: null,
+      imageUrl: null,
+      isCustom: false,
+    },
+    {
+      id: "doc-movement",
+      title: "REGENERASI KOMIKA PAPUA",
+      badge: "MOVEMENT",
+      date: "ANNUAL MOVEMENT",
+      venue: "MIMIKA CULTURAL HUB",
+      details: "Secara konsisten membina dan melahirkan bakat-bakat muda asli Timika untuk berani bersuara.",
+      flyerUrl: null,
+      imageUrl: null,
       isCustom: false,
     },
   ],

@@ -20,6 +20,10 @@ import {
   Eye,
   Images,
   FolderOpen,
+  Handshake,
+  Plus,
+  Edit2,
+  Globe,
 } from "lucide-react";
 import {
   SiteAssetsConfig,
@@ -34,6 +38,16 @@ interface StagedSlot {
   previewUrl: string;
   source: "local" | "storage";
   assetName?: string;
+}
+
+export interface PartnerItem {
+  id: string;
+  name: string;
+  logoUrl: string;
+  websiteUrl?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt?: string;
 }
 
 export default function MediaAssetsAdminPage() {
@@ -60,6 +74,21 @@ export default function MediaAssetsAdminPage() {
   const [selectedType, setSelectedType] = useState<string>("ALL");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+
+  // Partners & Sponsors Manager State
+  const [partners, setPartners] = useState<PartnerItem[]>([]);
+  const [isPartnerModalOpen, setIsPartnerModalOpen] = useState(false);
+  const [editingPartner, setEditingPartner] = useState<PartnerItem | null>(null);
+  const [partnerName, setPartnerName] = useState("");
+  const [partnerWebsite, setPartnerWebsite] = useState("");
+  const [partnerOrder, setPartnerOrder] = useState<number>(1);
+  const [partnerLogoStaged, setPartnerLogoStaged] = useState<{
+    file: File | null;
+    previewUrl: string;
+    source: "local" | "storage";
+  } | null>(null);
+  const [isSavingPartner, setIsSavingPartner] = useState(false);
+  const [isDeletingPartnerId, setIsDeletingPartnerId] = useState<string | null>(null);
 
   // Client helper for uploading to /api/upload
   const uploadFileToServer = async (
@@ -103,6 +132,18 @@ export default function MediaAssetsAdminPage() {
     }
   };
 
+  const fetchPartners = async () => {
+    try {
+      const res = await fetch("/api/partners");
+      if (res.ok) {
+        const data = await res.json();
+        setPartners(data);
+      }
+    } catch (err) {
+      console.warn("Could not load partners:", err);
+    }
+  };
+
   // Load configuration from API on mount
   useEffect(() => {
     async function loadConfig() {
@@ -120,6 +161,7 @@ export default function MediaAssetsAdminPage() {
     }
     loadConfig();
     fetchMediaAssets();
+    fetchPartners();
   }, []);
 
   // Cleanup object URLs on unmount
@@ -130,8 +172,11 @@ export default function MediaAssetsAdminPage() {
           URL.revokeObjectURL(s.previewUrl);
         }
       });
+      if (partnerLogoStaged && partnerLogoStaged.source === "local") {
+        URL.revokeObjectURL(partnerLogoStaged.previewUrl);
+      }
     };
-  }, [stagedSlots]);
+  }, [stagedSlots, partnerLogoStaged]);
 
   // Save specific config update to server
   const persistConfig = async (newConfig: SiteAssetsConfig) => {
@@ -180,6 +225,18 @@ export default function MediaAssetsAdminPage() {
     e.target.value = "";
   };
 
+  // Cancel staging preview
+  const handleCancelPreview = (slotId: string) => {
+    if (stagedSlots[slotId] && stagedSlots[slotId].source === "local") {
+      URL.revokeObjectURL(stagedSlots[slotId].previewUrl);
+    }
+    setStagedSlots((prev) => {
+      const copy = { ...prev };
+      delete copy[slotId];
+      return copy;
+    });
+  };
+
   // Open media picker to choose from already uploaded Cloudinary images
   const handleOpenMediaPicker = (slotId: string, defaultType: string = "ALL") => {
     setPickerSlotId(slotId);
@@ -190,6 +247,17 @@ export default function MediaAssetsAdminPage() {
   // Select existing asset from picker (avoids re-uploading to Cloudinary)
   const handleSelectAssetFromPicker = (asset: MediaAsset) => {
     if (!pickerSlotId) return;
+
+    if (pickerSlotId === "partner-logo") {
+      setPartnerLogoStaged({
+        file: null,
+        previewUrl: asset.url,
+        source: "storage",
+      });
+      setIsPickerOpen(false);
+      setPickerSlotId(null);
+      return;
+    }
 
     if (stagedSlots[pickerSlotId] && stagedSlots[pickerSlotId].source === "local") {
       URL.revokeObjectURL(stagedSlots[pickerSlotId].previewUrl);
@@ -209,18 +277,124 @@ export default function MediaAssetsAdminPage() {
     showSlotFeedback(pickerSlotId, `Dipilih dari storage: ${asset.name}`);
   };
 
-  // Cancel local staged preview
-  const handleCancelPreview = (slotId: string) => {
-    if (stagedSlots[slotId]) {
-      if (stagedSlots[slotId].source === "local") {
-        URL.revokeObjectURL(stagedSlots[slotId].previewUrl);
-      }
-      setStagedSlots((prev) => {
-        const copy = { ...prev };
-        delete copy[slotId];
-        return copy;
-      });
+  // Partner Manager handlers
+  const openCreatePartnerModal = () => {
+    setEditingPartner(null);
+    setPartnerName("");
+    setPartnerWebsite("");
+    setPartnerOrder(partners.length + 1);
+    setPartnerLogoStaged(null);
+    setIsPartnerModalOpen(true);
+  };
+
+  const openEditPartnerModal = (partner: PartnerItem) => {
+    setEditingPartner(partner);
+    setPartnerName(partner.name);
+    setPartnerWebsite(partner.websiteUrl || "");
+    setPartnerOrder(partner.sortOrder || 1);
+    setPartnerLogoStaged({
+      file: null,
+      previewUrl: partner.logoUrl,
+      source: "storage",
+    });
+    setIsPartnerModalOpen(true);
+  };
+
+  const handleStagePartnerLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (partnerLogoStaged && partnerLogoStaged.source === "local") {
+      URL.revokeObjectURL(partnerLogoStaged.previewUrl);
     }
+    const previewUrl = URL.createObjectURL(file);
+    setPartnerLogoStaged({
+      file,
+      previewUrl,
+      source: "local",
+    });
+    e.target.value = "";
+  };
+
+  const handleSavePartner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!partnerName.trim()) {
+      alert("Nama Brand/Partner wajib diisi.");
+      return;
+    }
+    if (!partnerLogoStaged?.previewUrl) {
+      alert("Silakan upload logo transparan untuk partner ini.");
+      return;
+    }
+
+    setIsSavingPartner(true);
+    try {
+      let finalLogoUrl = partnerLogoStaged.previewUrl;
+
+      // If local file, upload to Cloudinary
+      if (partnerLogoStaged.source === "local" && partnerLogoStaged.file) {
+        const uploaded = await uploadFileToServer(
+          partnerLogoStaged.file,
+          "stup-timika/partners"
+        );
+        finalLogoUrl = uploaded.url;
+      }
+
+      const payload = {
+        id: editingPartner ? editingPartner.id : `partner-${Date.now()}`,
+        name: partnerName.trim(),
+        logoUrl: finalLogoUrl,
+        websiteUrl: partnerWebsite.trim() || null,
+        sortOrder: Number(partnerOrder) || 1,
+        isActive: true,
+      };
+
+      const res = await fetch("/api/partners", {
+        method: editingPartner ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Gagal menyimpan partner");
+      }
+
+      await fetchPartners();
+      setIsPartnerModalOpen(false);
+      setEditingPartner(null);
+      setPartnerLogoStaged(null);
+    } catch (err: any) {
+      alert(err.message || "Gagal menyimpan partner");
+    } finally {
+      setIsSavingPartner(false);
+    }
+  };
+
+  const handleDeletePartner = async (id: string, name: string) => {
+    if (!confirm(`Hapus partner / sponsor "${name}" dari storage & database?`)) return;
+    setIsDeletingPartnerId(id);
+    try {
+      const res = await fetch(`/api/partners?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setPartners((prev) => prev.filter((p) => p.id !== id));
+      } else {
+        alert("Gagal menghapus partner");
+      }
+    } catch {
+      alert("Gagal menghapus partner");
+    } finally {
+      setIsDeletingPartnerId(null);
+    }
+  };
+
+  const handleToggleDynamicPartners = async () => {
+    const currentVal = siteConfig.useDynamicPartners !== false;
+    const nextVal = !currentVal;
+    const updated: SiteAssetsConfig = {
+      ...siteConfig,
+      useDynamicPartners: nextVal,
+    };
+    await persistConfig(updated);
   };
 
   // Apply staged file (Uploads if local, or directly saves if chosen from storage)
@@ -958,17 +1132,17 @@ export default function MediaAssetsAdminPage() {
           </div>
         </div>
 
-        {/* SLOT 3: SHOW FLYERS */}
+        {/* SLOT 3: DOKUMENTASI KEGIATAN */}
         <div className="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#000]">
           <div className="pb-4 border-b-2 border-black">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
               <h3 className="text-sm font-bold text-gray-900 uppercase font-['Space_Mono',monospace] tracking-wider">
-                Slot 3: Upcoming Show Flyers
+                Slot 3: Dokumentasi Kegiatan
               </h3>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Poster flyer show panggung TapTap (Rasio 4:5 Portrait).
+              Panduan spesifikasi: Rasio 16:9 atau 4:3 (Dokumentasi panggung/kegiatan komunitas, Max: 2 MB). Terhubung ke galeri arsip bento halaman About.
             </p>
           </div>
 
@@ -978,7 +1152,7 @@ export default function MediaAssetsAdminPage() {
               const staged = stagedSlots[slotId];
               const isUploading = uploadingSlot === slotId;
               const feedback = slotFeedback[slotId];
-              const activeFlyer = staged ? staged.previewUrl : f.flyerUrl;
+              const activeFlyer = staged ? staged.previewUrl : (f.imageUrl || f.flyerUrl);
 
               return (
                 <div
@@ -987,24 +1161,32 @@ export default function MediaAssetsAdminPage() {
                 >
                   <div>
                     <div className="flex items-center justify-between pb-2 border-b border-gray-300">
-                      <span className="font-bold text-xs text-gray-900">{f.title}</span>
-                      <span className="text-[10px] text-gray-600 font-mono">{f.venue}</span>
+                      <div className="flex items-center gap-1.5 truncate">
+                        {f.badge && (
+                          <span className="px-1.5 py-0.2 bg-black text-white text-[9px] font-bold uppercase font-mono">
+                            {f.badge}
+                          </span>
+                        )}
+                        <span className="font-bold text-xs text-gray-900 truncate">{f.title}</span>
+                      </div>
+                      <span className="text-[10px] text-gray-600 font-mono ml-2 shrink-0">{f.venue}</span>
                     </div>
 
-                    {/* Preview Frame */}
-                    <div className="mt-3 aspect-[4/5] max-h-[220px] bg-white border-2 border-black relative overflow-hidden flex items-center justify-center mx-auto w-full">
+                    {/* Preview Frame 16:9 */}
+                    <div className="mt-3 aspect-[16/9] max-h-[220px] bg-white border-2 border-black relative overflow-hidden flex items-center justify-center mx-auto w-full">
                       {activeFlyer ? (
                         <Image
                           src={activeFlyer}
                           alt={f.title}
                           fill
+                          unoptimized
                           className="object-cover"
                         />
                       ) : (
                         <div className="text-center p-3">
                           <ImageIcon className="w-6 h-6 text-gray-300 mx-auto mb-1" />
                           <span className="text-[11px] text-gray-400 font-mono block">
-                            Format Text Jadwal Bawaan
+                            Format Arsip Teks Bawaan
                           </span>
                         </div>
                       )}
@@ -1038,11 +1220,11 @@ export default function MediaAssetsAdminPage() {
                           type="button"
                           disabled={isUploading}
                           onClick={() =>
-                            handleApplySlot(slotId, "stup-timika/flyers", (url) => ({
+                            handleApplySlot(slotId, "stup-timika/documentation", (url) => ({
                               ...siteConfig,
                               flyers: siteConfig.flyers.map((item) =>
                                 item.id === f.id
-                                  ? { ...item, flyerUrl: url, isCustom: true }
+                                  ? { ...item, flyerUrl: url, imageUrl: url, isCustom: true }
                                   : item
                               ),
                             }))
@@ -1058,23 +1240,23 @@ export default function MediaAssetsAdminPage() {
                       </div>
                     ) : (
                       <div className="flex items-center justify-between gap-1.5">
-                        {(f.flyerUrl || f.isCustom) && (
+                        {(f.flyerUrl || f.imageUrl || f.isCustom) && (
                           <button
                             type="button"
                             onClick={() => {
-                              if (confirm(`Hapus poster flyer untuk ${f.title}?`)) {
+                              if (confirm(`Hapus foto dokumentasi untuk ${f.title}?`)) {
                                 handleResetSlot(slotId, () => ({
                                   ...siteConfig,
                                   flyers: siteConfig.flyers.map((item) =>
                                     item.id === f.id
-                                      ? { ...item, flyerUrl: null, isCustom: false }
+                                      ? { ...item, flyerUrl: null, imageUrl: null, isCustom: false }
                                       : item
                                   ),
                                 }));
                               }
                             }}
                             className="text-[10px] font-bold text-red-700 hover:text-white hover:bg-red-600 flex items-center gap-1 cursor-pointer bg-red-100 border border-black px-2 py-0.5 shadow-[1px_1px_0px_0px_#000] transition-colors"
-                            title="Hapus poster flyer"
+                            title="Hapus foto dokumentasi"
                           >
                             <Trash2 className="w-3 h-3" />
                             <span>Hapus</span>
@@ -1083,9 +1265,9 @@ export default function MediaAssetsAdminPage() {
                         <div className="flex items-center gap-1 ml-auto">
                           <button
                             type="button"
-                            onClick={() => handleOpenMediaPicker(slotId, "FLYER")}
+                            onClick={() => handleOpenMediaPicker(slotId, "DOCUMENTATION")}
                             className="p-1 bg-[#FFF8F6] border border-black text-black hover:bg-yellow-300"
-                            title="Pilih flyer dari storage"
+                            title="Pilih foto dokumentasi dari storage"
                           >
                             <Images className="w-3.5 h-3.5 text-[#FF4500]" />
                           </button>
@@ -1263,7 +1445,144 @@ export default function MediaAssetsAdminPage() {
         </div>
       </div>
 
-      {/* 5. General Media & Asset Storage Explorer (Real Image Previews) */}
+      {/* 5. PARTNERS & SPONSORS MANAGER */}
+      <div className="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#000] space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b-2 border-black">
+          <div>
+            <div className="flex items-center gap-2">
+              <Handshake className="w-5 h-5 text-[#FF4500]" />
+              <h2 className="text-base font-bold text-gray-900 uppercase font-['Space_Mono',monospace]">
+                Partners & Sponsors Manager
+              </h2>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Kelola logo brand dan partner resmi yang tampil di continuous marquee ticker landing page web.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Dynamic Partners Toggle */}
+            <button
+              type="button"
+              onClick={handleToggleDynamicPartners}
+              className={`px-3.5 py-1.5 border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer flex items-center gap-1.5 transition-colors active:translate-y-0.5 ${
+                siteConfig.useDynamicPartners !== false
+                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+              title="Toggle tampilan dinamis partner vs statis bawaan di web"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>
+                {siteConfig.useDynamicPartners !== false
+                  ? "Dynamic Partners: ON"
+                  : "Dynamic Partners: OFF (Static Fallback)"}
+              </span>
+            </button>
+
+            {/* Add Partner Button */}
+            <button
+              type="button"
+              onClick={openCreatePartnerModal}
+              className="px-4 py-1.5 bg-black text-white hover:bg-[#FF4500] border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer flex items-center gap-1.5 active:translate-y-0.5 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Add Partner / Sponsor</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Partners Cards Grid */}
+        {partners.length === 0 ? (
+          <div className="bg-gray-50 border-2 border-dashed border-gray-300 p-8 text-center text-xs font-mono text-gray-500">
+            Belum ada partner atau sponsor terdaftar. Klik "+ Add Partner / Sponsor" untuk menambahkan brand.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {partners.map((partner) => (
+              <div
+                key={partner.id}
+                className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000] flex flex-col justify-between overflow-hidden group hover:shadow-[6px_6px_0px_0px_#000] transition-all"
+              >
+                {/* Logo Frame with Checkerboard / Transparency Container */}
+                <div className="p-3 bg-gray-50 border-b-2 border-black">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="px-2 py-0.5 bg-black text-white font-mono text-[10px] font-bold">
+                      ORDER #{partner.sortOrder}
+                    </span>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono text-[9px] font-bold uppercase">
+                      ACTIVE
+                    </span>
+                  </div>
+
+                  <div className="h-28 w-full bg-white border-2 border-black relative overflow-hidden flex items-center justify-center p-3 shadow-[2px_2px_0px_0px_#000]">
+                    {partner.logoUrl ? (
+                      <Image
+                        src={partner.logoUrl}
+                        alt={partner.name}
+                        fill
+                        unoptimized
+                        className="object-contain p-2 filter grayscale contrast-125 group-hover:grayscale-0 transition-all duration-200"
+                      />
+                    ) : (
+                      <span className="text-xs text-gray-400 font-mono">No Logo</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Details & Actions */}
+                <div className="p-3 flex flex-col justify-between flex-1 gap-3 bg-white">
+                  <div>
+                    <h4 className="font-bold text-sm text-gray-900 truncate font-['Space_Mono',monospace]">
+                      {partner.name}
+                    </h4>
+                    {partner.websiteUrl ? (
+                      <a
+                        href={partner.websiteUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline font-mono truncate max-w-full mt-0.5"
+                      >
+                        <Globe className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{partner.websiteUrl.replace(/^https?:\/\//, "")}</span>
+                      </a>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 font-mono">Tanpa link website</span>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-200 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditPartnerModal(partner)}
+                      className="flex-1 py-1 px-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold border border-black flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDeletingPartnerId === partner.id}
+                      onClick={() => handleDeletePartner(partner.id, partner.name)}
+                      className="py-1 px-2.5 bg-red-50 hover:bg-red-600 hover:text-white text-red-700 text-xs font-bold border border-black flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-[1px_1px_0px_0px_#000]"
+                      title="Hapus partner"
+                    >
+                      {isDeletingPartnerId === partner.id ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3 h-3" />
+                      )}
+                      <span>Hapus</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 6. General Media & Asset Storage Explorer (Real Image Previews) */}
       <div className="pt-4 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -1610,6 +1929,166 @@ export default function MediaAssetsAdminPage() {
                   Tutup
                 </button>
               </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Partner Create / Edit Modal */}
+      {isPartnerModalOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            onClick={() => !isSavingPartner && setIsPartnerModalOpen(false)}
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white border-4 border-black max-w-lg w-full p-6 shadow-[8px_8px_0px_0px_#000] space-y-5 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between pb-3 border-b-2 border-black">
+                <h3 className="text-sm font-bold text-gray-900 uppercase font-['Space_Mono',monospace] tracking-wider flex items-center gap-2">
+                  <Handshake className="w-5 h-5 text-[#FF4500]" />
+                  <span>
+                    {editingPartner ? "Edit Partner / Sponsor" : "+ Add New Partner / Sponsor"}
+                  </span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsPartnerModalOpen(false)}
+                  className="p-1 hover:bg-gray-100 border border-black cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSavePartner} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-800 uppercase mb-1">
+                    Nama Brand / Partner *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={partnerName}
+                    onChange={(e) => setPartnerName(e.target.value)}
+                    placeholder="Contoh: KOPITIAM 88, TIMIKA BEATZ"
+                    className="w-full border-2 border-black p-2 text-xs font-mono focus:outline-none focus:border-[#FF4500]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-800 uppercase mb-1">
+                    Website URL / Instagram (Opsional)
+                  </label>
+                  <input
+                    type="url"
+                    value={partnerWebsite}
+                    onChange={(e) => setPartnerWebsite(e.target.value)}
+                    placeholder="https://instagram.com/kopitiam88"
+                    className="w-full border-2 border-black p-2 text-xs font-mono focus:outline-none focus:border-[#FF4500]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-800 uppercase mb-1">
+                    Urutan Tampilan (Sort Order)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={partnerOrder}
+                    onChange={(e) => setPartnerOrder(Number(e.target.value))}
+                    className="w-full border-2 border-black p-2 text-xs font-mono focus:outline-none focus:border-[#FF4500]"
+                  />
+                </div>
+
+                {/* Upload Logo with Staging */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-800 uppercase mb-1">
+                    Logo Brand (PNG/WebP Transparan Tanpa Background) *
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenMediaPicker("partner-logo", "DOCUMENTATION")}
+                      className="px-3 py-1.5 bg-[#FFF8F6] text-black hover:bg-yellow-300 border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Images className="w-3.5 h-3.5 text-[#FF4500]" />
+                      <span>Pilih Dari Storage</span>
+                    </button>
+
+                    <label className="px-3 py-1.5 bg-black text-white hover:bg-[#FF4500] border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer flex items-center gap-1.5">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Upload File Transparan</span>
+                      <input
+                        type="file"
+                        accept="image/png,image/webp,image/svg+xml"
+                        onChange={handleStagePartnerLogo}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Staged Logo Preview Box */}
+                  <div className="h-32 w-full bg-[#FFF8F6] border-2 border-black relative flex items-center justify-center p-3 shadow-[3px_3px_0px_0px_#000]">
+                    {partnerLogoStaged ? (
+                      <>
+                        <Image
+                          src={partnerLogoStaged.previewUrl}
+                          alt="Partner Logo Preview"
+                          fill
+                          unoptimized
+                          className="object-contain p-3"
+                        />
+                        <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-yellow-300 border border-black text-[9px] font-bold">
+                          {partnerLogoStaged.source === "local" ? "STAGING (LOKAL)" : "STAGING (STORAGE)"}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPartnerLogoStaged(null)}
+                          className="absolute top-1 right-1 p-1 bg-red-600 text-white border border-black cursor-pointer hover:bg-red-700"
+                          title="Hapus preview logo"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <div className="text-center p-2 text-gray-400 font-mono text-xs">
+                        Belum ada logo yang dipilih.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Modal Actions */}
+                <div className="pt-4 border-t-2 border-black flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsPartnerModalOpen(false)}
+                    className="px-4 py-2 border-2 border-black font-bold text-xs uppercase hover:bg-gray-100 cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingPartner}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-black font-bold text-xs uppercase shadow-[2px_2px_0px_0px_#000] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingPartner ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Menyimpan ke Neon DB...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>SAVE PARTNER</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>,
           document.body

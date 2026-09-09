@@ -1,29 +1,42 @@
+import Image from "next/image";
 import { Navbar } from "../../src/components/Navbar";
 import { Footer } from "../../src/components/Footer";
 import { LocationSection } from "../../src/components/LocationSection";
 import { AnimateReveal } from "../../src/components/AnimateReveal";
 import { Mic, Flame, Shield, Target } from "lucide-react";
+import { getMediaSettingsFromDB } from "../../src/lib/site-config.server";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+interface AboutPageProps {
+  searchParams?: Promise<{ view_mode?: string }>;
+}
 
 const bentoArchives = [
   {
+    id: "doc-origin",
     title: "FIRST OPEN MIC IN MIMIKA (2018)",
     desc: "Bermula dari 5 orang berkumpul di warung kopi Jalan Yos Sudarso dengan satu mic kabel dan penonton yang bingung.",
     badge: "ORIGIN STORY",
     colSpan: "md:col-span-2",
   },
   {
+    id: "doc-milestone",
     title: "100+ JAM TERTAWA",
     desc: "Lebih dari 150 kali open mic digelar di berbagai kafe dan sudut kota Timika.",
     badge: "MILESTONE",
     colSpan: "md:col-span-1",
   },
   {
+    id: "doc-network",
     title: "KOLABORASI KOMIKA NASIONAL",
     desc: "Membawa nama-nama besar stand-up comedy Indonesia untuk tampil langsung menghibur masyarakat Timika.",
     badge: "NETWORK",
     colSpan: "md:col-span-1",
   },
   {
+    id: "doc-movement",
     title: "REGENERASI KOMIKA PAPUA",
     desc: "Secara konsisten membina dan melahirkan bakat-bakat muda asli Timika untuk berani bersuara di panggung.",
     badge: "MOVEMENT",
@@ -31,7 +44,19 @@ const bentoArchives = [
   },
 ];
 
-export default function AboutPage() {
+export default async function AboutPage({ searchParams }: AboutPageProps) {
+  const resolvedParams = await searchParams;
+  const viewMode = resolvedParams?.view_mode?.toLowerCase();
+  const config = await getMediaSettingsFromDB();
+
+  const isDynamic =
+    viewMode === "dynamic"
+      ? true
+      : viewMode === "static"
+      ? false
+      : Boolean(config?.useDynamicAssets);
+
+  const dynamicDocs = config?.flyers || config?.documentation || [];
   return (
     <div className="min-h-screen bg-[#FDFBF7] flex flex-col selection:bg-[#FF4500] selection:text-white">
       <Navbar />
@@ -130,33 +155,59 @@ export default function AboutPage() {
           </AnimateReveal>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {bentoArchives.map((archive, index) => (
-              <AnimateReveal
-                key={index}
-                variant="fade-up"
-                delayMs={index * 90}
-                durationMs={650}
-                className={archive.colSpan}
-              >
-                <div className="bg-white border-4 border-black p-8 shadow-[8px_8px_0px_0px_#000000] flex flex-col justify-between hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_#000000] transition-all h-full">
-                  <div>
-                    <span className="px-3 py-1 bg-black text-white font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-wider mb-4 inline-block">
-                      {archive.badge}
-                    </span>
-                    <h3 className="font-['Anton',sans-serif] text-2xl md:text-3xl text-[#281812] uppercase mb-3">
-                      {archive.title}
-                    </h3>
-                    <p className="font-['Work_Sans',sans-serif] text-[#5C4037] leading-relaxed">
-                      {archive.desc}
-                    </p>
-                  </div>
+            {bentoArchives.map((archive, index) => {
+              const dynamicItem =
+                dynamicDocs[index] || dynamicDocs.find((d) => d.id === archive.id);
+              const photoUrl = isDynamic
+                ? dynamicItem?.imageUrl || dynamicItem?.flyerUrl
+                : null;
 
-                  <div className="mt-6 pt-4 border-t-2 border-black font-['Space_Mono',monospace] text-xs font-bold text-[#A83300]">
-                    ARCHIVE REF #{index + 101}
+              return (
+                <AnimateReveal
+                  key={index}
+                  variant="fade-up"
+                  delayMs={index * 90}
+                  durationMs={650}
+                  className={archive.colSpan}
+                >
+                  <div className="bg-white border-4 border-black p-8 shadow-[8px_8px_0px_0px_#000000] flex flex-col justify-between hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_#000000] transition-all h-full group">
+                    <div>
+                      {photoUrl && (
+                        <div className="mb-5 aspect-[16/9] w-full bg-black border-2 border-black relative overflow-hidden shadow-[4px_4px_0px_0px_#000]">
+                          <Image
+                            src={photoUrl}
+                            alt={archive.title}
+                            fill
+                            unoptimized
+                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute top-2 right-2 z-10 px-2 py-0.5 bg-black text-white font-['Space_Mono',monospace] text-[9px] font-bold uppercase tracking-wider">
+                            LIVE DOKUMENTASI
+                          </div>
+                        </div>
+                      )}
+
+                      <span className="px-3 py-1 bg-black text-white font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-wider mb-4 inline-block">
+                        {archive.badge}
+                      </span>
+                      <h3 className="font-['Anton',sans-serif] text-2xl md:text-3xl text-[#281812] uppercase mb-3">
+                        {archive.title}
+                      </h3>
+                      <p className="font-['Work_Sans',sans-serif] text-[#5C4037] leading-relaxed">
+                        {archive.desc}
+                      </p>
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t-2 border-black font-['Space_Mono',monospace] text-xs font-bold text-[#A83300] flex justify-between items-center">
+                      <span>ARCHIVE REF #{index + 101}</span>
+                      {photoUrl && (
+                        <span className="text-[10px] text-gray-500 font-mono">16:9 HD</span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </AnimateReveal>
-            ))}
+                </AnimateReveal>
+              );
+            })}
           </div>
         </section>
 

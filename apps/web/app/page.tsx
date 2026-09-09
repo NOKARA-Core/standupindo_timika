@@ -7,7 +7,7 @@ import { StoreSection } from "../src/components/StoreSection";
 import { PartnersSection } from "../src/components/PartnersSection";
 import { LocationSection } from "../src/components/LocationSection";
 import { Footer } from "../src/components/Footer";
-import { getMediaSettingsFromDB } from "../src/lib/site-config.server";
+import { getMediaSettingsFromDB, getPartnersFromDB } from "../src/lib/site-config.server";
 import { PreviewPill } from "../src/components/PreviewPill";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,10 @@ interface HomePageProps {
 export default async function HomePage({ searchParams }: HomePageProps) {
   const resolvedParams = await searchParams;
   const viewMode = resolvedParams?.view_mode?.toLowerCase();
-  const config = await getMediaSettingsFromDB();
+  const [config, partners] = await Promise.all([
+    getMediaSettingsFromDB(),
+    getPartnersFromDB(),
+  ]);
 
   // Prioritaskan query param ?view_mode=dynamic / static jika ada
   const isDynamic =
@@ -29,6 +32,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       : viewMode === "static"
       ? false
       : Boolean(config?.useDynamicAssets);
+
+  const useDynamicPartners = isDynamic && config?.useDynamicPartners !== false;
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] flex flex-col selection:bg-[#FF4500] selection:text-white relative">
@@ -49,7 +54,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           merchConfig={config?.merch}
           isDynamic={isDynamic}
         />
-        <PartnersSection />
+        <PartnersSection
+          partners={useDynamicPartners ? partners : undefined}
+          isDynamic={useDynamicPartners}
+        />
         <LocationSection />
       </main>
       <Footer />

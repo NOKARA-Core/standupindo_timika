@@ -25,7 +25,6 @@ export default function EventsAdminPage() {
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [deleteEventId, setDeleteEventId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [isUploading, setIsUploading] = useState<boolean>(false);
 
   // Form State
   const [title, setTitle] = useState("");
@@ -38,7 +37,6 @@ export default function EventsAdminPage() {
   const [price, setPrice] = useState("");
   const [taptapUrl, setTaptapUrl] = useState("");
   const [status, setStatus] = useState<"PUBLISHED" | "DRAFT" | "TAPTAP LIVE">("PUBLISHED");
-  const [flyerUrl, setFlyerUrl] = useState<string>("");
 
   // Load events from Neon DB API
   const fetchEvents = async () => {
@@ -81,7 +79,6 @@ export default function EventsAdminPage() {
     setPrice("FREE ENTRY");
     setTaptapUrl("");
     setStatus("PUBLISHED");
-    setFlyerUrl("");
     setIsModalOpen(true);
   };
 
@@ -97,7 +94,6 @@ export default function EventsAdminPage() {
     setPrice(evt.price);
     setTaptapUrl(evt.taptapUrl || "");
     setStatus(evt.status);
-    setFlyerUrl(evt.flyerUrl || "");
     setIsModalOpen(true);
   };
 
@@ -117,7 +113,6 @@ export default function EventsAdminPage() {
         price,
         taptapUrl,
         status,
-        flyerUrl: flyerUrl || undefined,
         capacity: type === "OPEN MIC" ? 60 : 250,
       };
 
@@ -185,34 +180,6 @@ export default function EventsAdminPage() {
       alert("Gagal menghapus event");
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleUploadFlyer = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "stup-timika/flyers");
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setFlyerUrl(data.url);
-      } else {
-        alert("Gagal upload flyer");
-      }
-    } catch (err) {
-      console.error("Upload error:", err);
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -575,32 +542,6 @@ export default function EventsAdminPage() {
                     placeholder="https://taptap.id/e/..."
                     className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
                   />
-                </div>
-              </div>
-
-              {/* Upload Flyer */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                  Flyer Event Poster
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="text"
-                    value={flyerUrl}
-                    onChange={(e) => setFlyerUrl(e.target.value)}
-                    placeholder="https://res.cloudinary.com/..."
-                    className="flex-1 border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
-                  />
-                  <label className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold border border-gray-200 flex items-center gap-1.5 cursor-pointer">
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>{isUploading ? "Uploading..." : "Upload"}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleUploadFlyer}
-                      className="hidden"
-                    />
-                  </label>
                 </div>
               </div>
 

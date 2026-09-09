@@ -17,15 +17,19 @@ export interface ComedianAssetConfig {
   isCustom: boolean;
 }
 
-export interface FlyerAssetConfig {
+export interface DocumentationAssetConfig {
   id: string;
   title: string;
-  date: string;
-  venue: string;
-  details: string;
+  badge?: string;
+  date?: string;
+  venue?: string;
+  details?: string;
   flyerUrl: string | null;
+  imageUrl?: string | null;
   isCustom: boolean;
 }
+
+export type FlyerAssetConfig = DocumentationAssetConfig;
 
 export interface MerchAssetConfig {
   id: string;
@@ -39,9 +43,11 @@ export interface MerchAssetConfig {
 
 export interface SiteAssetsConfig {
   useDynamicAssets: boolean;
+  useDynamicPartners?: boolean;
   hero: HeroAssetConfig;
   comedians: ComedianAssetConfig[];
-  flyers: FlyerAssetConfig[];
+  flyers: DocumentationAssetConfig[];
+  documentation?: DocumentationAssetConfig[];
   merch: MerchAssetConfig[];
 }
 
@@ -87,21 +93,47 @@ export const defaultSiteConfig: SiteAssetsConfig = {
   ],
   flyers: [
     {
-      id: "grind-42",
-      title: "THE GRIND (OPEN MIC)",
-      date: "FRI, OCT 13 - 8 PM",
-      venue: "THE BUNKER",
-      details: "JL. YOS SUDARSO • HOST: RIAN 'THE HAMMER'",
+      id: "doc-origin",
+      title: "FIRST OPEN MIC IN MIMIKA (2018)",
+      badge: "ORIGIN STORY",
+      date: "2018",
+      venue: "WARUNG KOPI YOS SUDARSO",
+      details: "Bermula dari 5 orang berkumpul di warung kopi Jalan Yos Sudarso dengan satu mic kabel.",
       flyerUrl: null,
+      imageUrl: null,
       isCustom: false,
     },
     {
-      id: "neon-night",
-      title: "TIMIKA STANDUP NIGHT",
-      date: "SAT, OCT 14 - 9 PM",
-      venue: "NEON CAFE",
-      details: "SP2 • HOST: TIKA 'NO FILTER'",
+      id: "doc-milestone",
+      title: "100+ JAM TERTAWA",
+      badge: "MILESTONE",
+      date: "150+ SHOWS",
+      venue: "TIMIKA CAFE CIRCUIT",
+      details: "Lebih dari 150 kali open mic digelar di berbagai kafe dan sudut kota Timika.",
       flyerUrl: null,
+      imageUrl: null,
+      isCustom: false,
+    },
+    {
+      id: "doc-network",
+      title: "KOLABORASI KOMIKA NASIONAL",
+      badge: "NETWORK",
+      date: "SPECIAL TOURS",
+      venue: "EME NEME YAUWARE",
+      details: "Membawa nama-nama besar stand-up comedy Indonesia untuk tampil langsung menghibur masyarakat Timika.",
+      flyerUrl: null,
+      imageUrl: null,
+      isCustom: false,
+    },
+    {
+      id: "doc-movement",
+      title: "REGENERASI KOMIKA PAPUA",
+      badge: "MOVEMENT",
+      date: "ANNUAL MOVEMENT",
+      venue: "MIMIKA CULTURAL HUB",
+      details: "Secara konsisten membina dan melahirkan bakat-bakat muda asli Timika untuk berani bersuara.",
+      flyerUrl: null,
+      imageUrl: null,
       isCustom: false,
     },
   ],
@@ -176,3 +208,46 @@ export async function getSiteConfig(): Promise<SiteAssetsConfig> {
 
   return defaultSiteConfig;
 }
+
+export interface WebPartnerItem {
+  id: string;
+  name: string;
+  logoUrl: string;
+  websiteUrl?: string | null;
+  sortOrder: number;
+}
+
+export const defaultWebPartners: WebPartnerItem[] = [
+  {
+    id: "default-kopitiam88",
+    name: "KOPITIAM 88",
+    logoUrl:
+      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 80'><text x='50%' y='55%' text-anchor='middle' dominant-baseline='middle' font-family='monospace' font-weight='900' font-size='22' fill='%23000'>☕ KOPITIAM 88</text></svg>",
+    websiteUrl: "https://instagram.com",
+    sortOrder: 1,
+  },
+  {
+    id: "default-timikabeatz",
+    name: "TIMIKA BEATZ",
+    logoUrl:
+      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 80'><text x='50%' y='55%' text-anchor='middle' dominant-baseline='middle' font-family='monospace' font-weight='900' font-size='22' fill='%23000'>🎧 TIMIKA BEATZ</text></svg>",
+    websiteUrl: "https://instagram.com",
+    sortOrder: 2,
+  },
+  {
+    id: "default-underground",
+    name: "UNDERGROUND PRINT",
+    logoUrl:
+      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 80'><text x='50%' y='55%' text-anchor='middle' dominant-baseline='middle' font-family='monospace' font-weight='900' font-size='20' fill='%23000'>⚡ UNDERGROUND</text></svg>",
+    websiteUrl: "https://instagram.com",
+    sortOrder: 3,
+  },
+  {
+    id: "default-mimikacreative",
+    name: "MIMIKA CREATIVE",
+    logoUrl:
+      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 80'><text x='50%' y='55%' text-anchor='middle' dominant-baseline='middle' font-family='monospace' font-weight='900' font-size='20' fill='%23000'>🔥 MIMIKA CREATIVE</text></svg>",
+    websiteUrl: "https://instagram.com",
+    sortOrder: 4,
+  },
+];

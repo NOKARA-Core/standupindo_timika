@@ -87,3 +87,25 @@ a {
   transform: translate(2px, 2px) !important;
   box-shadow: 2px 2px 0px 0px #000000 !important;
 }
+
+/* Seamless Continuous Marquee Ticker (Left to Right Punchline) */
+@keyframes marquee-ltr {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+.animate-marquee-seamless {
+  display: flex;
+  width: max-content;
+  animation: marquee-ltr 24s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-seamless:hover {
+  animation-play-state: paused;
+}
+
