@@ -15,9 +15,11 @@ const connectionString =
 
 const isNeon = connectionString.includes("neon.tech");
 const isSsl = connectionString.includes("sslmode=require") || isNeon;
+const isVercel = process.env.VERCEL === "1";
 
-// Helper to resolve an IPv4 address synchronously for Linux/Bun environments
+// Helper to resolve an IPv4 address synchronously for Linux/Bun local dev environments (bypassed on Vercel)
 function resolveNeonIPv4(hostname: string): string | null {
+  if (isVercel) return null;
   try {
     const output = execFileSync("getent", ["ahosts", hostname], {
       encoding: "utf-8",
@@ -37,14 +39,14 @@ function resolveNeonIPv4(hostname: string): string | null {
   return null;
 }
 
-// Lazy getter to prevent connection pool instantiation during next build
+// Lazy singleton getter to prevent connection pool exhaustion on serverless function invocations
 export function getSql() {
   if (!globalThis._postgresSql) {
     let finalConnectionString = connectionString;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let sslOptions: any = isSsl ? "require" : false;
 
-    if (isNeon) {
+    if (isNeon && !isVercel) {
       try {
         const urlObj = new URL(connectionString);
         const originalHostname = urlObj.hostname;
@@ -64,8 +66,8 @@ export function getSql() {
     }
 
     globalThis._postgresSql = postgres(finalConnectionString, {
-      max: 10,
-      idle_timeout: 20,
+      max: isVercel ? 1 : 10,
+      idle_timeout: isVercel ? 15 : 20,
       connect_timeout: 10,
       ssl: sslOptions,
     });
@@ -74,3 +76,4 @@ export function getSql() {
 }
 
 export default getSql;
+
