@@ -151,9 +151,9 @@ export async function getSiteConfig(): Promise<SiteAssetsConfig> {
     });
     if (res.ok) {
       const data = (await res.json()) as Partial<SiteAssetsConfig>;
-      if (data && data.useDynamicAssets) {
+      if (data) {
         return {
-          useDynamicAssets: true,
+          useDynamicAssets: Boolean(data.useDynamicAssets),
           hero: { ...defaultSiteConfig.hero, ...(data.hero || {}) },
           comedians:
             data.comedians && data.comedians.length > 0

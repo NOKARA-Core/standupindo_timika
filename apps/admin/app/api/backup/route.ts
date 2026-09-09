@@ -13,6 +13,8 @@ export async function GET() {
       "media_assets",
       "site_assets_config",
       "admin_users",
+      "members",
+      "finances",
     ];
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
