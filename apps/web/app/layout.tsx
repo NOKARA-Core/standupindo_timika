@@ -4,7 +4,53 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "StandUpINDO Timika - Laugh Louder. Live Raw.",
-  description: "Standupindo Timika is where the underground meets the punchline. Unfiltered comedy straight from the rough edges of reality.",
+  description:
+    "Standupindo Timika is where the underground meets the punchline. Unfiltered comedy straight from the rough edges of reality.",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "https://standupindotimika.com"
+  ),
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/logo-stup_timika.png", type: "image/png" },
+    ],
+    shortcut: ["/favicon.ico"],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  openGraph: {
+    title: "StandUpINDO Timika - Laugh Louder. Live Raw.",
+    description:
+      "Standupindo Timika is where the underground meets the punchline. Unfiltered comedy straight from the rough edges of reality.",
+    url: "/",
+    siteName: "StandUpINDO Timika",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "StandUpINDO Timika Logo",
+      },
+      {
+        url: "/logo-stup_timika.png",
+        width: 2000,
+        height: 2000,
+        alt: "StandUpINDO Timika Official Emblem",
+      },
+    ],
+    locale: "id_ID",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "StandUpINDO Timika - Laugh Louder. Live Raw.",
+    description:
+      "Standupindo Timika is where the underground meets the punchline. Unfiltered comedy straight from the rough edges of reality.",
+    images: ["/og-image.png"],
+  },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
