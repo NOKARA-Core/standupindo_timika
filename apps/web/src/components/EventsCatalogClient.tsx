@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Calendar, Clock, MapPin, User, ExternalLink } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
-import { DBEvent } from "../lib/site-config.server";
+import type { DBEvent } from "../lib/types";
+import { sanitizeOutboundUrl } from "../lib/security";
 import {
   isValidTapTapLink,
   formatEventDate,
@@ -115,6 +116,8 @@ export function EventsCatalogClient({ events }: EventsCatalogClientProps) {
               const isPassedOrClosed =
                 displayStatus === "CLOSED" || displayStatus === "EXPIRED";
 
+              const safeTapTapUrl = sanitizeOutboundUrl(event.taptapUrl);
+
               return (
                 <AnimateReveal
                   key={event.id}
@@ -201,9 +204,9 @@ export function EventsCatalogClient({ events }: EventsCatalogClientProps) {
                         >
                           EVENT SELESAI
                         </div>
-                      ) : displayStatus === "ACTIVE_WITH_TICKET" && event.taptapUrl ? (
+                      ) : displayStatus === "ACTIVE_WITH_TICKET" && safeTapTapUrl ? (
                         <a
-                          href={event.taptapUrl}
+                          href={safeTapTapUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="group w-full lg:w-auto px-6 py-3.5 bg-black hover:bg-[#FF4500] text-[#ffffff] hover:text-[#000000] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] flex items-center justify-center gap-2 transition-all cursor-pointer"

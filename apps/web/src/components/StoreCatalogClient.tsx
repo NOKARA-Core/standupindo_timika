@@ -4,7 +4,8 @@ import { useState } from "react";
 import Image from "next/image";
 import { MessageCircle } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
-import { DBMerchandise } from "../lib/site-config.server";
+import type { DBMerchandise } from "../lib/types";
+import { sanitizeOutboundUrl } from "../lib/security";
 import { NeoPagination } from "./NeoPagination";
 
 interface StoreCatalogClientProps {
@@ -108,7 +109,8 @@ export function StoreCatalogClient({
 
               // Pre-built WhatsApp order message according to specification
               const orderMessage = `Halo StandUP INDO Timika, saya ingin memesan merchandise: ${product.name} seharga ${formattedPrice}. Apakah stok masih tersedia?`;
-              const waOrderUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(orderMessage)}`;
+              const rawWaOrderUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(orderMessage)}`;
+              const waOrderUrl = sanitizeOutboundUrl(rawWaOrderUrl) || `https://wa.me/${whatsappNumber}`;
 
               return (
                 <AnimateReveal

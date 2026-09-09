@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Calendar } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
-import { DBEvent, defaultWebEvents } from "../lib/site-config.server";
+import { defaultWebEvents } from "../lib/site-config.server";
+import type { DBEvent } from "../lib/types";
+import { sanitizeOutboundUrl } from "../lib/security";
 import {
   isValidTapTapLink,
   formatEventDate,
@@ -71,6 +73,8 @@ export function ScheduleSection({ events }: ScheduleSectionProps) {
               item.taptapUrl
             );
 
+            const safeTapTapUrl = sanitizeOutboundUrl(item.taptapUrl);
+
             return (
               <AnimateReveal
                 key={item.id}
@@ -105,9 +109,9 @@ export function ScheduleSection({ events }: ScheduleSectionProps) {
                       >
                         EVENT SELESAI
                       </div>
-                    ) : displayStatus === "ACTIVE_WITH_TICKET" && item.taptapUrl ? (
+                    ) : displayStatus === "ACTIVE_WITH_TICKET" && safeTapTapUrl ? (
                       <a
-                        href={item.taptapUrl}
+                        href={safeTapTapUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="group px-6 py-2.5 bg-black hover:bg-[#FF4500] text-[#ffffff] hover:text-black font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all inline-flex items-center gap-1.5 cursor-pointer"

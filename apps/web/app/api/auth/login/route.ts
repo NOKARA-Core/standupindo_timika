@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
 import { getSql } from "../../../../src/lib/db";
+import { loginSchema } from "../../../../src/lib/security";
 
 // Declare Bun global for TypeScript
 declare const Bun: any;
 
 export async function POST(request: Request) {
   try {
-    const { username, password } = await request.json();
+    const rawBody = await request.json();
+    const parseResult = loginSchema.safeParse(rawBody);
 
-    if (!username || !password) {
-      return NextResponse.json(
-        { error: "Username dan password wajib diisi." },
-        { status: 400 }
-      );
+    if (!parseResult.success) {
+      const firstError =
+        parseResult.error.issues[0]?.message || "Format data login tidak valid.";
+      return NextResponse.json({ error: firstError }, { status: 400 });
     }
+
+    const { username, password } = parseResult.data;
 
     const sql = getSql();
     const rows = await sql`

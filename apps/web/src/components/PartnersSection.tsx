@@ -1,7 +1,8 @@
 import Image from "next/image";
 import { Handshake } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
-import { WebPartnerItem } from "../lib/site-config";
+import type { WebPartnerItem } from "../lib/types";
+import { sanitizeOutboundUrl } from "../lib/security";
 
 interface StaticSponsor {
   name: string;
@@ -83,10 +84,12 @@ export function PartnersSection({
               </div>
             );
 
-            return partner.websiteUrl ? (
+            const safeWebsiteUrl = sanitizeOutboundUrl(partner.websiteUrl);
+
+            return safeWebsiteUrl ? (
               <a
                 key={partner.id || `${partner.name}-${index}`}
-                href={partner.websiteUrl}
+                href={safeWebsiteUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block focus:outline-none w-full h-full"

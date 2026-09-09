@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Users } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
 import { ComedianAssetConfig, defaultSiteConfig } from "../lib/site-config";
-import { DBComedian } from "../lib/site-config.server";
+import type { DBComedian } from "../lib/types";
 
 interface TalentGridSectionProps {
   comediansConfig?: ComedianAssetConfig[];

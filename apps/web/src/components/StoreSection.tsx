@@ -3,7 +3,8 @@ import Link from "next/link";
 import { ShoppingBag, MessageCircle } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
 import { MerchAssetConfig, defaultSiteConfig } from "../lib/site-config";
-import { DBMerchandise } from "../lib/site-config.server";
+import type { DBMerchandise } from "../lib/types";
+import { sanitizeOutboundUrl } from "../lib/security";
 
 interface StoreSectionProps {
   merchConfig?: MerchAssetConfig[];
@@ -77,7 +78,8 @@ export function StoreSection({
                 (product as any).status === "out_of_stock");
 
             const orderMessage = `Halo StandUP INDO Timika, saya ingin memesan merchandise: ${product.name} seharga ${displayPrice}. Apakah stok masih tersedia?`;
-            const waOrderUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(orderMessage)}`;
+            const rawWaOrderUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(orderMessage)}`;
+            const waOrderUrl = sanitizeOutboundUrl(rawWaOrderUrl) || `https://wa.me/${whatsappNumber}`;
 
             return (
               <AnimateReveal

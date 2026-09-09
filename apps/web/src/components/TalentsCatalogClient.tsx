@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Search, UserCheck, Mic2, MessageCircle } from "lucide-react";
+import { Search, UserCheck, MessageCircle } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
-import { DBComedian } from "../lib/site-config.server";
+import type { DBComedian } from "../lib/types";
+import { sanitizeSearchInput, sanitizeOutboundUrl } from "../lib/security";
 
 import { NeoPagination } from "./NeoPagination";
 
@@ -29,7 +30,7 @@ export function TalentsCatalogClient({
   };
 
   const handleSearchChange = (query: string) => {
-    setSearchQuery(query);
+    setSearchQuery(sanitizeSearchInput(query, 100));
     setCurrentPage(1);
   };
 
@@ -135,7 +136,8 @@ export function TalentsCatalogClient({
             const hasCustomPhoto = Boolean(comedian.avatarUrl?.trim());
             const bookingTargetPhone = comedian.phone?.replace(/\D/g, "") || whatsappNumber;
             const bookingMsg = `Halo StandUP INDO Timika, saya ingin mengundang / booking komika: ${comedian.stageName} untuk panggung acara. Mohon info ketersediaan jadwal.`;
-            const bookingUrl = `https://wa.me/${bookingTargetPhone}?text=${encodeURIComponent(bookingMsg)}`;
+            const rawBookingUrl = `https://wa.me/${bookingTargetPhone}?text=${encodeURIComponent(bookingMsg)}`;
+            const bookingUrl = sanitizeOutboundUrl(rawBookingUrl) || `https://wa.me/${whatsappNumber}`;
 
             return (
               <AnimateReveal

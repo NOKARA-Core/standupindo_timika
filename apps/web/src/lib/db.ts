@@ -1,3 +1,4 @@
+import "server-only";
 import postgres from "postgres";
 import { execFileSync } from "node:child_process";
 
