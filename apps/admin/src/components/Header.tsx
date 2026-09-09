@@ -58,16 +58,6 @@ export function Header({
 
       {/* Right: Quick Action, Notification & Avatar & Logout */}
       <div className="flex items-center gap-3 md:gap-4">
-        {/* Open Public Web with Retro Brutalism styling */}
-        <a
-          href={webUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FFF8F6] hover:bg-[#FFE9E3] text-[#FF4500] hover:text-[#D93800] border-2 border-black font-['Space_Mono',monospace] text-xs font-bold uppercase tracking-wider shadow-[2px_2px_0px_0px_#000000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
-        >
-          <span>Live Web</span>
-          <ExternalLink className="w-3.5 h-3.5" />
-        </a>
 
         {/* Notification Bell */}
         <button
