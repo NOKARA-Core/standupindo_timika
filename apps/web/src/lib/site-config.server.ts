@@ -35,6 +35,89 @@ export interface DBMerchandise {
   isActive: boolean;
 }
 
+export interface DBEvent {
+  id: string;
+  title: string;
+  type: string;
+  date: string;
+  time: string;
+  venue: string;
+  address?: string;
+  host?: string;
+  price?: string;
+  taptapUrl?: string | null;
+  status: string;
+  flyerUrl?: string | null;
+}
+
+export const defaultWebEvents: DBEvent[] = [
+  {
+    id: "grind-01",
+    type: "OPEN MIC",
+    title: "THE GRIND VOL. 42",
+    date: "2026-10-13",
+    time: "20:00 WIT",
+    venue: "THE BUNKER",
+    address: "Jl. Yos Sudarso No. 18, Timika",
+    host: "RIAN 'THE HAMMER'",
+    price: "FREE ENTRY / F&B",
+    taptapUrl: "https://taptap.id/e/stup-timika-grind-42",
+    status: "REGISTRATION OPEN",
+  },
+  {
+    id: "grind-02",
+    type: "OPEN MIC",
+    title: "THE GRIND: NEWBLOOD EDITION",
+    date: "2026-10-14",
+    time: "21:00 WIT",
+    venue: "NEON CAFE",
+    address: "SP2 Jalur 3, Timika",
+    host: "TIKA 'NO FILTER'",
+    price: "FREE ENTRY",
+    taptapUrl: "https://taptap.id/e/stup-timika-newblood",
+    status: "REGISTRATION OPEN",
+  },
+  {
+    id: "grind-03",
+    type: "OPEN MIC",
+    title: "ACOUSTIC & COMEDY NIGHT",
+    date: "2026-10-18",
+    time: "19:30 WIT",
+    venue: "KOPI & TAWA",
+    address: "Jl. Timika Indah No. 4, Timika",
+    host: "DIMAS",
+    price: "FREE ENTRY",
+    taptapUrl: "https://taptap.id/e/stup-timika-kopi-tawa",
+    status: "REGISTRATION OPEN",
+  },
+  {
+    id: "special-01",
+    type: "SPECIAL SHOW",
+    title: "RIAN: 'ROASTING TIMIKA'",
+    date: "2026-11-04",
+    time: "19:00 WIT",
+    venue: "GEDUNG EME NEME YAUWARE",
+    address: "Jl. Budi Utomo, Timika",
+    host: "DIMAS & TIKA",
+    price: "RP 75.000 (EARLY BIRD)",
+    taptapUrl: "https://taptap.id/e/rian-roasting-timika",
+    status: "TICKETS AVAILABLE",
+  },
+  {
+    id: "special-02",
+    type: "SPECIAL SHOW",
+    title: "STANDUP FEST MIMIKA 2026",
+    date: "2026-12-12",
+    time: "18:30 WIT",
+    venue: "BALLROOM HOTEL HORISON TIMIKA",
+    address: "Jl. Hasanuddin No. 9, Timika",
+    host: "ALL TIMIKA ROSTER + NATIONAL GUEST",
+    price: "RP 120.000",
+    taptapUrl: "https://taptap.id/e/standup-fest-mimika",
+    status: "LIMITED SEATS",
+  },
+];
+
 export const defaultWebComedians: DBComedian[] = [
   {
     id: "dimas",
@@ -247,6 +330,39 @@ export async function getMerchandiseFromDB(): Promise<DBMerchandise[]> {
     console.warn("Could not load merchandise from database:", err);
   }
   return defaultWebMerchandise;
+}
+
+export async function getEventsFromDB(): Promise<DBEvent[]> {
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return defaultWebEvents;
+  }
+  try {
+    const sql = getSql();
+    const rows = await sql`
+      SELECT 
+        id,
+        title,
+        type,
+        date,
+        time,
+        venue,
+        address,
+        host,
+        price,
+        taptap_url as "taptapUrl",
+        status,
+        flyer_url as "flyerUrl"
+      FROM events
+      WHERE status != 'DRAFT'
+      ORDER BY date ASC, time ASC
+    `;
+    if (rows && rows.length > 0) {
+      return rows as unknown as DBEvent[];
+    }
+  } catch (err) {
+    console.warn("Could not load events from database:", err);
+  }
+  return defaultWebEvents;
 }
 
 export async function getWhatsAppOrderNumberFromDB(): Promise<string> {

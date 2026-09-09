@@ -533,15 +533,18 @@ export default function EventsAdminPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                    Tautan TapTap / RSVP
+                    Tautan TapTap / RSVP (Opsional)
                   </label>
                   <input
-                    type="url"
+                    type="text"
                     value={taptapUrl}
                     onChange={(e) => setTaptapUrl(e.target.value)}
-                    placeholder="https://taptap.id/e/..."
+                    placeholder="https://taptap.id/e/... (Kosongkan jika belum ada)"
                     className="w-full border border-gray-200 p-2 text-xs focus:outline-none focus:border-gray-900"
                   />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    * Kosongkan atau beri strip (-) jika tiket belum rilis. Di web akan otomatis tampil badge merah &quot;COMING SOON&quot;.
+                  </p>
                 </div>
               </div>
 

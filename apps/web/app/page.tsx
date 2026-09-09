@@ -13,26 +13,29 @@ import {
   getComediansFromDB,
   getMerchandiseFromDB,
   getWhatsAppOrderNumberFromDB,
+  getEventsFromDB,
 } from "../src/lib/site-config.server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function HomePage() {
-  const [config, partners, comedians, merchandise, whatsappNumber] = await Promise.all([
-    getMediaSettingsFromDB(),
-    getPartnersFromDB(),
-    getComediansFromDB(),
-    getMerchandiseFromDB(),
-    getWhatsAppOrderNumberFromDB(),
-  ]);
+  const [config, partners, comedians, merchandise, whatsappNumber, events] =
+    await Promise.all([
+      getMediaSettingsFromDB(),
+      getPartnersFromDB(),
+      getComediansFromDB(),
+      getMerchandiseFromDB(),
+      getWhatsAppOrderNumberFromDB(),
+      getEventsFromDB(),
+    ]);
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] flex flex-col selection:bg-[#FF4500] selection:text-white relative">
       <Navbar />
       <main className="flex-1 flex flex-col">
         <HeroSection heroConfig={config?.hero} />
-        <ScheduleSection />
+        <ScheduleSection events={events} />
         <TalentGridSection
           comedians={comedians}
           comediansConfig={config?.comedians}
