@@ -74,30 +74,30 @@ export function LogoutButton({
             <button
               type="button"
               onClick={() => setIsOpen(true)}
-              className="w-full flex items-center justify-center p-2 text-red-600 hover:text-white hover:bg-red-600 border border-transparent hover:border-red-600 rounded-sm transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center p-2.5 bg-red-500 hover:bg-red-600 text-white border-2 border-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
               title="Logout"
               aria-label="Logout"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 stroke-[2.5]" />
             </button>
           ) : (
             <button
               type="button"
               onClick={() => setIsOpen(true)}
-              className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-red-600 hover:text-white hover:bg-red-600 border border-red-200 hover:border-red-600 transition-colors cursor-pointer shadow-xs"
+              className="w-full flex items-center justify-between px-3 py-2 bg-red-500 text-white border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:bg-red-600 font-mono font-bold text-xs active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer mt-1"
             >
               <div className="flex items-center gap-2">
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-4 h-4 stroke-[2.5]" />
                 <span>LOGOUT</span>
               </div>
-              <span className="text-[10px] uppercase font-mono tracking-wider opacity-80">
+              <span className="text-[10px] uppercase font-mono tracking-wider opacity-90 border border-white/50 px-1 py-0.2">
                 Keluar
               </span>
             </button>
           )}
 
           {isCollapsed && (
-            <div className="hidden md:block absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1 bg-red-600 text-white text-xs font-bold rounded-xs shadow-md opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+            <div className="hidden lg:block absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-red-600 text-white text-xs font-mono font-bold uppercase border-2 border-black shadow-[2px_2px_0px_0px_#000] opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
               Keluar / Logout
             </div>
           )}

@@ -36,14 +36,14 @@ export function Header({
     <header className="h-16 bg-white border-b border-gray-200 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30">
       {/* Left: Toggle & Dynamic Title */}
       <div className="flex items-center gap-3">
-        {/* Mobile menu toggle */}
+        {/* Mobile menu toggle (Neo-Brutalism) */}
         <button
           type="button"
           onClick={onToggleSidebar}
-          className="md:hidden p-2 text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer"
+          className="lg:hidden p-2 bg-white text-black border-3 border-black shadow-[2px_2px_0px_0px_#000] hover:bg-[#FFD700] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
           aria-label="Open Navigation Menu"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-5 h-5 stroke-[2.5]" />
         </button>
 
         <div className="flex flex-col">

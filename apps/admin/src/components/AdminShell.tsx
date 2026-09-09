@@ -61,10 +61,10 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
         onToggleCollapse={() => setIsCollapsed((prev) => !prev)}
       />
 
-      {/* Main Content Area - padded to not overlap fixed sidebar */}
+      {/* Main Content Area - padded to not overlap fixed sidebar on desktop */}
       <div
-        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out ${
-          isCollapsed ? "md:pl-20" : "md:pl-64"
+        className={`flex-1 flex flex-col min-w-0 transition-all duration-200 ease-in-out ${
+          isCollapsed ? "lg:pl-20" : "lg:pl-64"
         }`}
       >
         <Header

@@ -3,8 +3,8 @@ import {
   Calendar,
   Mic2,
   ShoppingBag,
-  DollarSign,
-  Users,
+  WalletCards,
+  UserCheck,
   Image as ImageIcon,
   Settings,
   type LucideIcon,
@@ -71,13 +71,13 @@ export const adminNavItems: NavItem[] = [
   {
     label: "Finances",
     href: "/finances",
-    icon: DollarSign,
+    icon: WalletCards,
     roles: ["superadmin"],
   },
   {
     label: "Members",
     href: "/members",
-    icon: Users,
+    icon: UserCheck,
     roles: ["superadmin"],
   },
   {
