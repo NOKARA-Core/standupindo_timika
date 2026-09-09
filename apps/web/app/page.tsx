@@ -1,6 +1,3 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import { Navbar } from "../src/components/Navbar";
 import { HeroSection } from "../src/components/HeroSection";
 import { ScheduleSection } from "../src/components/ScheduleSection";
@@ -10,71 +7,55 @@ import { StoreSection } from "../src/components/StoreSection";
 import { PartnersSection } from "../src/components/PartnersSection";
 import { LocationSection } from "../src/components/LocationSection";
 import { Footer } from "../src/components/Footer";
-import {
-  SiteAssetsConfig,
-  defaultSiteConfig,
-  getSiteConfig,
-} from "../src/lib/site-config";
+import { getMediaSettingsFromDB } from "../src/lib/site-config.server";
+import { PreviewPill } from "../src/components/PreviewPill";
 
-export default function Home() {
-  const [siteConfig, setSiteConfig] = useState<SiteAssetsConfig>(defaultSiteConfig);
-  const [forcedMode, setForcedMode] = useState<"static" | "dynamic" | null>(null);
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-  // Read URL query parameter ?view_mode=static | dynamic (from Admin Panel preview actions)
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const viewMode = params.get("view_mode")?.toLowerCase();
-      if (viewMode === "static") {
-        setForcedMode("static");
-      } else if (viewMode === "dynamic") {
-        setForcedMode("dynamic");
-      }
-    }
-  }, []);
+interface HomePageProps {
+  searchParams: Promise<{ view_mode?: string }>;
+}
 
-  useEffect(() => {
-    let isMounted = true;
-    getSiteConfig().then((cfg) => {
-      if (isMounted && cfg) {
-        setSiteConfig(cfg);
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const resolvedParams = await searchParams;
+  const viewMode = resolvedParams?.view_mode?.toLowerCase();
+  const config = await getMediaSettingsFromDB();
 
-  // Use forced mode if query param exists, otherwise follow public database setting
-  const effectiveIsDynamic =
-    forcedMode === "static"
-      ? false
-      : forcedMode === "dynamic"
+  // Prioritaskan query param ?view_mode=dynamic / static jika ada
+  const isDynamic =
+    viewMode === "dynamic"
       ? true
-      : siteConfig.useDynamicAssets;
+      : viewMode === "static"
+      ? false
+      : Boolean(config?.useDynamicAssets);
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] flex flex-col selection:bg-[#FF4500] selection:text-white">
+    <div className="min-h-screen bg-[#FDFBF7] flex flex-col selection:bg-[#FF4500] selection:text-white relative">
       <Navbar />
       <main className="flex-1 flex flex-col">
         <HeroSection
-          heroConfig={siteConfig.hero}
-          isDynamic={effectiveIsDynamic}
+          heroConfig={config?.hero}
+          dynamicData={isDynamic ? config?.hero : null}
+          isDynamic={isDynamic}
         />
         <ScheduleSection />
         <TalentGridSection
-          comediansConfig={siteConfig.comedians}
-          isDynamic={effectiveIsDynamic}
+          comediansConfig={config?.comedians}
+          isDynamic={isDynamic}
         />
         <GallerySection />
         <StoreSection
-          merchConfig={siteConfig.merch}
-          isDynamic={effectiveIsDynamic}
+          merchConfig={config?.merch}
+          isDynamic={isDynamic}
         />
         <PartnersSection />
         <LocationSection />
       </main>
       <Footer />
+
+      {/* Floating pill kecil di pojok kiri bawah */}
+      <PreviewPill isDynamic={isDynamic} viewMode={viewMode} />
     </div>
   );
 }
