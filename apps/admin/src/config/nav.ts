@@ -25,7 +25,6 @@ export const CURATOR_FORBIDDEN_PATHS = [
   "/finances",
   "/store",
   "/members",
-  "/settings",
 ];
 
 // Helper to check if a specific path can be accessed by the given role
@@ -90,6 +89,6 @@ export const adminNavItems: NavItem[] = [
     label: "Settings",
     href: "/settings",
     icon: Settings,
-    roles: ["superadmin"],
+    roles: ["superadmin", "curator"],
   },
 ];
