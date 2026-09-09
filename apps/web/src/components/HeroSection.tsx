@@ -11,19 +11,10 @@ interface HeroSectionProps {
 
 export function HeroSection({
   heroConfig = defaultSiteConfig.hero,
-  dynamicData,
-  isDynamic = false,
 }: HeroSectionProps) {
-  // Determine effective hero config: prioritizes dynamicData if provided, otherwise checks isDynamic flag
-  const effectiveConfig =
-    dynamicData !== undefined
-      ? dynamicData
-      : isDynamic
-      ? heroConfig
-      : null;
-
-  const hasCustomImage = Boolean(effectiveConfig && effectiveConfig.url);
-  const activeHeroUrl = effectiveConfig?.url || null;
+  // Direct-first: if custom url exists in database, render image; otherwise fallback to default
+  const activeHeroUrl = heroConfig?.url?.trim() || null;
+  const hasCustomImage = Boolean(activeHeroUrl);
 
   return (
     <section className="w-full bg-[#FDFBF7] py-16 px-6 md:px-12 lg:px-20 border-b-2 border-black overflow-hidden">

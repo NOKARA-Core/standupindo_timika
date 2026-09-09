@@ -24,11 +24,10 @@ interface PartnersSectionProps {
 
 export function PartnersSection({
   partners,
-  isDynamic = false,
 }: PartnersSectionProps) {
-  // Gunakan partner dinamis dari database jika tersedia, atau fallback ke default sponsors
+  // Direct-first: Gunakan partner dinamis dari database jika tersedia, atau otomatis fallback ke default sponsors
   const displayItems =
-    isDynamic && partners && partners.length > 0
+    partners && partners.length > 0
       ? partners
       : defaultSponsors.map((s, idx) => ({
           id: `static-${idx}`,

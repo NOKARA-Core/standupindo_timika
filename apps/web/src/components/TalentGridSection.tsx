@@ -43,7 +43,7 @@ export function TalentGridSection({
         {/* Talent Grid with Staggered pop-in */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {comediansConfig.map((talent, index) => {
-            const hasCustomPhoto = Boolean(isDynamic && talent.avatarUrl);
+            const hasCustomPhoto = Boolean(talent.avatarUrl?.trim());
 
             return (
               <AnimateReveal

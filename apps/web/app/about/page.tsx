@@ -9,10 +9,6 @@ import { getMediaSettingsFromDB } from "../../src/lib/site-config.server";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-interface AboutPageProps {
-  searchParams?: Promise<{ view_mode?: string }>;
-}
-
 const bentoArchives = [
   {
     id: "doc-origin",
@@ -44,18 +40,8 @@ const bentoArchives = [
   },
 ];
 
-export default async function AboutPage({ searchParams }: AboutPageProps) {
-  const resolvedParams = await searchParams;
-  const viewMode = resolvedParams?.view_mode?.toLowerCase();
+export default async function AboutPage() {
   const config = await getMediaSettingsFromDB();
-
-  const isDynamic =
-    viewMode === "dynamic"
-      ? true
-      : viewMode === "static"
-      ? false
-      : Boolean(config?.useDynamicAssets);
-
   const dynamicDocs = config?.flyers || config?.documentation || [];
   return (
     <div className="min-h-screen bg-[#FDFBF7] flex flex-col selection:bg-[#FF4500] selection:text-white">
@@ -158,9 +144,8 @@ export default async function AboutPage({ searchParams }: AboutPageProps) {
             {bentoArchives.map((archive, index) => {
               const dynamicItem =
                 dynamicDocs[index] || dynamicDocs.find((d) => d.id === archive.id);
-              const photoUrl = isDynamic
-                ? dynamicItem?.imageUrl || dynamicItem?.flyerUrl
-                : null;
+              const photoUrl =
+                dynamicItem?.imageUrl?.trim() || dynamicItem?.flyerUrl?.trim() || null;
 
               return (
                 <AnimateReveal

@@ -43,7 +43,7 @@ export function StoreSection({
         {/* Product Cards Grid with Staggered pop-in */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {merchConfig.map((product, index) => {
-            const hasCustomImage = Boolean(isDynamic && product.imageUrl);
+            const hasCustomImage = Boolean(product.imageUrl?.trim());
 
             return (
               <AnimateReveal

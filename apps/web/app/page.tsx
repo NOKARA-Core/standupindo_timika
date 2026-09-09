@@ -12,54 +12,22 @@ import { getMediaSettingsFromDB, getPartnersFromDB } from "../src/lib/site-confi
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-interface HomePageProps {
-  searchParams: Promise<{ view_mode?: string }>;
-}
-
-export default async function HomePage({ searchParams }: HomePageProps) {
-  const resolvedParams = await searchParams;
-  const viewMode = resolvedParams?.view_mode?.toLowerCase();
+export default async function HomePage() {
   const [config, partners] = await Promise.all([
     getMediaSettingsFromDB(),
     getPartnersFromDB(),
   ]);
 
-  // Prioritaskan query param ?view_mode=dynamic / static jika ada
-  const isDynamic =
-    viewMode === "dynamic"
-      ? true
-      : viewMode === "static"
-      ? false
-      : Boolean(config?.useDynamicAssets);
-
-  const useDynamicPartners = isDynamic && config?.useDynamicPartners !== false;
-
   return (
     <div className="min-h-screen bg-[#FDFBF7] flex flex-col selection:bg-[#FF4500] selection:text-white relative">
       <Navbar />
       <main className="flex-1 flex flex-col">
-        <HeroSection
-          heroConfig={config?.hero}
-          dynamicData={isDynamic ? config?.hero : null}
-          isDynamic={isDynamic}
-        />
+        <HeroSection heroConfig={config?.hero} />
         <ScheduleSection />
-        <TalentGridSection
-          comediansConfig={config?.comedians}
-          isDynamic={isDynamic}
-        />
-        <GallerySection
-          documentationConfig={config?.flyers}
-          isDynamic={isDynamic}
-        />
-        <StoreSection
-          merchConfig={config?.merch}
-          isDynamic={isDynamic}
-        />
-        <PartnersSection
-          partners={useDynamicPartners ? partners : undefined}
-          isDynamic={useDynamicPartners}
-        />
+        <TalentGridSection comediansConfig={config?.comedians} />
+        <GallerySection documentationConfig={config?.flyers} />
+        <StoreSection merchConfig={config?.merch} />
+        <PartnersSection partners={partners} />
         <LocationSection />
       </main>
       <Footer />

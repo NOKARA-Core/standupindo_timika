@@ -53,15 +53,13 @@ export function GallerySection({
           {galleryItems.map((item, index) => {
             const dynamicItem = documentationConfig?.[index];
             const activeImageUrl =
-              isDynamic && dynamicItem
-                ? dynamicItem.imageUrl || dynamicItem.flyerUrl
-                : null;
+              dynamicItem?.imageUrl?.trim() || dynamicItem?.flyerUrl?.trim() || null;
             const displayTitle =
-              isDynamic && dynamicItem?.isCustom && dynamicItem?.title
+              dynamicItem?.isCustom && dynamicItem?.title
                 ? dynamicItem.title
                 : item.title;
             const displayTag =
-              isDynamic && dynamicItem?.badge ? dynamicItem.badge : item.tag;
+              dynamicItem?.badge?.trim() ? dynamicItem.badge : item.tag;
 
             return (
               <div
