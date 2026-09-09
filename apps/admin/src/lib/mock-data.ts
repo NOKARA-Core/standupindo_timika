@@ -44,10 +44,11 @@ export interface OpenMicRegistration {
 export interface MediaAsset {
   id: string;
   name: string;
-  type: "BANNER" | "FLYER" | "HEADSHOT" | "DOCUMENTATION";
+  type: "BANNER" | "FLYER" | "HEADSHOT" | "DOCUMENTATION" | "PARTNER";
   size: string;
   url: string;
   uploadedAt: string;
+  public_id?: string;
 }
 
 export interface ActivityMetric {

@@ -64,11 +64,15 @@ export default function MediaAssetsAdminPage() {
   const [pickerTypeFilter, setPickerTypeFilter] = useState<string>("ALL");
   const [isPickerOpen, setIsPickerOpen] = useState(false);
 
-  // Storage explorer state (loaded from Neon DB /api/media-assets)
+  // Storage explorer state (loaded from Cloudinary & Neon DB /api/media)
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [selectedType, setSelectedType] = useState<string>("ALL");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+  const [explorerPage, setExplorerPage] = useState<number>(1);
+  const [assetToDelete, setAssetToDelete] = useState<MediaAsset | null>(null);
+  const [isDeletingAsset, setIsDeletingAsset] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Partners & Sponsors Manager State
   const [partners, setPartners] = useState<PartnerItem[]>([]);
@@ -117,10 +121,16 @@ export default function MediaAssetsAdminPage() {
 
   const fetchMediaAssets = async () => {
     try {
-      const res = await fetch("/api/media-assets");
+      const res = await fetch("/api/media?all=true");
       if (res.ok) {
         const data = await res.json();
-        setAssets(data);
+        setAssets(data.assets || []);
+      } else {
+        const fallbackRes = await fetch("/api/media-assets");
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          setAssets(fallbackData);
+        }
       }
     } catch (err) {
       console.warn("Could not load media assets:", err);
@@ -444,29 +454,41 @@ export default function MediaAssetsAdminPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleDeleteAsset = async (id: string, url?: string) => {
-    const confirmed = confirm(
-      "Apakah Anda yakin ingin menghapus gambar ini secara permanen?\n\nGambar akan dihapus dari Cloudinary Storage dan database."
-    );
-    if (!confirmed) return;
+  const handleSelectType = (type: string) => {
+    setSelectedType(type);
+    setExplorerPage(1);
+  };
 
-    setIsDeletingId(id);
+  const handleRequestDeleteAsset = (asset: MediaAsset) => {
+    setAssetToDelete(asset);
+  };
+
+  const confirmDeleteAsset = async () => {
+    if (!assetToDelete) return;
+    const publicId =
+      assetToDelete.public_id ||
+      assetToDelete.url?.match(/\/image\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-zA-Z0-9]+)?$/)?.[1] ||
+      assetToDelete.id;
+
+    setIsDeletingAsset(true);
+    setIsDeletingId(assetToDelete.id);
+
     try {
-      const params = new URLSearchParams();
-      if (id) params.set("id", id);
-      if (url) params.set("url", url);
-
-      const res = await fetch(`/api/media-assets?${params.toString()}`, {
+      const res = await fetch("/api/media", {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ public_id: publicId }),
       });
-      const data = await res.json();
 
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || "Gagal menghapus aset.");
+        throw new Error(data.error || "Gagal menghapus aset dari Cloudinary.");
       }
 
       setAssets((prev) =>
-        prev.filter((item) => item.id !== id && (!url || item.url !== url))
+        prev.filter(
+          (item) => item.id !== assetToDelete.id && item.url !== assetToDelete.url
+        )
       );
 
       // If any slot is currently staging this deleted image, cancel staging
@@ -474,7 +496,7 @@ export default function MediaAssetsAdminPage() {
         const next = { ...prev };
         let changed = false;
         Object.entries(next).forEach(([k, v]) => {
-          if (v?.previewUrl === url) {
+          if (v?.previewUrl === assetToDelete.url) {
             delete next[k];
             changed = true;
           }
@@ -483,21 +505,35 @@ export default function MediaAssetsAdminPage() {
       });
 
       // If active hero is using this deleted image, clear it
-      if (url && siteConfig.hero?.url === url) {
+      if (assetToDelete.url && siteConfig.hero?.url === assetToDelete.url) {
         await handleResetSlot("hero", () => ({
           ...siteConfig,
           hero: { ...defaultSiteConfig.hero, url: null, isCustom: false },
         }));
       }
+
+      setToastMessage(`Aset "${assetToDelete.name}" berhasil dihapus permanen!`);
+      setTimeout(() => setToastMessage(null), 3500);
+      setAssetToDelete(null);
     } catch (err: any) {
+      console.error("Delete asset error:", err);
       alert(err.message || "Gagal menghapus aset dari storage.");
     } finally {
+      setIsDeletingAsset(false);
       setIsDeletingId(null);
     }
   };
 
+  const ITEMS_PER_PAGE = 12;
+
   const filteredAssets = assets.filter(
     (a) => selectedType === "ALL" || a.type === selectedType
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredAssets.length / ITEMS_PER_PAGE));
+  const paginatedAssets = filteredAssets.slice(
+    (explorerPage - 1) * ITEMS_PER_PAGE,
+    explorerPage * ITEMS_PER_PAGE
   );
 
   const pickerFilteredAssets = assets.filter(
@@ -1287,7 +1323,7 @@ export default function MediaAssetsAdminPage() {
               <button
                 key={type}
                 type="button"
-                onClick={() => setSelectedType(type)}
+                onClick={() => handleSelectType(type)}
                 className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer border border-black ${
                   selectedType === type
                     ? "bg-black text-white"
@@ -1300,20 +1336,22 @@ export default function MediaAssetsAdminPage() {
           </div>
         </div>
 
-        {/* Real Thumbnail Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredAssets.length === 0 ? (
+        {/* Real Thumbnail Cards (12 per page in grid-cols-2 md:grid-cols-3 lg:grid-cols-4) */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {paginatedAssets.length === 0 ? (
             <div className="col-span-full bg-white border-2 border-black p-8 text-center text-gray-500 font-mono text-xs">
-              Belum ada file media yang tersimpan di storage.
+              Belum ada file media yang tersimpan di storage untuk kategori ini.
             </div>
           ) : (
-            filteredAssets.map((asset) => (
+            paginatedAssets.map((asset) => (
               <div
                 key={asset.id}
-                className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000] flex flex-col justify-between overflow-hidden group hover:shadow-[6px_6px_0px_0px_#000] transition-all"
+                className={`bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000] flex flex-col justify-between overflow-hidden group hover:shadow-[6px_6px_0px_0px_#000] transition-all relative ${
+                  isDeletingId === asset.id ? "opacity-40 pointer-events-none" : ""
+                }`}
               >
                 {/* Visual Thumbnail Area */}
-                <div className="h-36 bg-gray-900 flex flex-col justify-between p-3 relative overflow-hidden">
+                <div className="h-36 bg-gray-900 flex flex-col justify-between p-2.5 sm:p-3 relative overflow-hidden">
                   {asset.url && (
                     <Image
                       src={asset.url}
@@ -1325,27 +1363,25 @@ export default function MediaAssetsAdminPage() {
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
 
+                  {/* Top Bar: Badge & Trash Icon */}
                   <div className="flex justify-between items-start z-10 relative">
                     <span className="px-2 py-0.5 bg-white text-gray-900 text-[10px] font-bold uppercase tracking-wider">
                       {asset.type}
                     </span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-white/90 font-mono font-bold bg-black/60 px-1">
-                        {asset.size}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={isDeletingId === asset.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteAsset(asset.id, asset.url);
-                        }}
-                        className="p-1 bg-red-600/90 hover:bg-red-700 text-white border border-black cursor-pointer transition-colors shadow-[1px_1px_0px_0px_#000]"
-                        title="Hapus gambar ini"
-                      >
-                        <Trash2 className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
+
+                    {/* Small Red Trash Icon at Top Right Corner */}
+                    <button
+                      type="button"
+                      disabled={isDeletingId === asset.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRequestDeleteAsset(asset);
+                      }}
+                      className="p-1.5 bg-red-600 hover:bg-red-700 text-white border border-black cursor-pointer transition-transform hover:scale-105 shadow-[1px_1px_0px_0px_#000]"
+                      title="Hapus aset Cloudinary ini"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
                   </div>
 
                   <div className="my-auto z-10 relative">
@@ -1354,8 +1390,9 @@ export default function MediaAssetsAdminPage() {
                     </span>
                   </div>
 
-                  <div className="text-[10px] text-white/70 z-10 relative font-mono">
-                    Uploaded: {asset.uploadedAt}
+                  <div className="flex justify-between items-center text-[10px] text-white/70 z-10 relative font-mono">
+                    <span className="truncate">{asset.uploadedAt}</span>
+                    <span className="bg-black/60 px-1 font-bold text-white/90 shrink-0">{asset.size}</span>
                   </div>
                 </div>
 
@@ -1369,12 +1406,12 @@ export default function MediaAssetsAdminPage() {
                     {copiedId === asset.id ? (
                       <>
                         <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="text-emerald-600">Copied!</span>
+                        <span className="text-emerald-600 text-[11px]">Copied!</span>
                       </>
                     ) : (
                       <>
                         <Copy className="w-3.5 h-3.5" />
-                        <span>Copy URL</span>
+                        <span className="text-[11px]">Copy URL</span>
                       </>
                     )}
                   </button>
@@ -1382,14 +1419,14 @@ export default function MediaAssetsAdminPage() {
                   <button
                     type="button"
                     disabled={isDeletingId === asset.id}
-                    onClick={() => handleDeleteAsset(asset.id, asset.url)}
-                    className="px-2.5 py-1 bg-red-100 hover:bg-red-600 hover:text-white text-red-700 font-bold border border-black text-[11px] uppercase flex items-center gap-1 cursor-pointer transition-colors shadow-[1px_1px_0px_0px_#000]"
+                    onClick={() => handleRequestDeleteAsset(asset)}
+                    className="px-2.5 py-1 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 font-bold border border-black text-[11px] uppercase flex items-center gap-1 cursor-pointer transition-colors shadow-[1px_1px_0px_0px_#000]"
                     title="Hapus gambar secara permanen dari Cloudinary"
                   >
                     {isDeletingId === asset.id ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <Loader2 className="w-3 h-3 animate-spin" />
                     ) : (
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3 h-3" />
                     )}
                     <span>Hapus</span>
                   </button>
@@ -1398,6 +1435,52 @@ export default function MediaAssetsAdminPage() {
             ))
           )}
         </div>
+
+        {/* Neo-Brutalism Pagination Controls */}
+        {filteredAssets.length > 0 && (
+          <div className="pt-4 border-t-2 border-black flex flex-col sm:flex-row items-center justify-between gap-4 select-none">
+            <div className="font-mono text-xs font-bold text-gray-600">
+              Menampilkan {paginatedAssets.length} dari {filteredAssets.length} Aset (Page {explorerPage} of {totalPages})
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setExplorerPage((prev) => Math.max(1, prev - 1))}
+                disabled={explorerPage <= 1}
+                className="border-3 border-black shadow-[3px_3px_0px_0px_#000] font-bold px-4 py-2 text-xs uppercase bg-white hover:bg-[#FFE9E3] hover:text-[#FF4500] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all active:translate-x-[1px] active:translate-y-[1px]"
+              >
+                &lt; PREV
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                  <button
+                    key={pg}
+                    type="button"
+                    onClick={() => setExplorerPage(pg)}
+                    className={`w-8 h-8 border-2 border-black font-mono text-xs font-bold transition-all cursor-pointer ${
+                      explorerPage === pg
+                        ? "bg-[#FF4500] text-white shadow-[2px_2px_0px_0px_#000]"
+                        : "bg-white text-black hover:bg-gray-100 shadow-[1px_1px_0px_0px_#000]"
+                    }`}
+                  >
+                    {pg}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setExplorerPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={explorerPage >= totalPages}
+                className="border-3 border-black shadow-[3px_3px_0px_0px_#000] font-bold px-4 py-2 text-xs uppercase bg-white hover:bg-[#FFE9E3] hover:text-[#FF4500] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all active:translate-x-[1px] active:translate-y-[1px]"
+              >
+                NEXT &gt;
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Media Picker Modal (Select from existing uploaded images) */}
@@ -1489,7 +1572,7 @@ export default function MediaAssetsAdminPage() {
                               disabled={isDeletingId === asset.id}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteAsset(asset.id, asset.url);
+                                handleRequestDeleteAsset(asset);
                               }}
                               className="p-1 bg-red-600/90 hover:bg-red-700 text-white border border-black cursor-pointer transition-colors shadow-[1px_1px_0px_0px_#000]"
                               title="Hapus gambar permanen dari Cloudinary"
@@ -1516,7 +1599,7 @@ export default function MediaAssetsAdminPage() {
                               disabled={isDeletingId === asset.id}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteAsset(asset.id, asset.url);
+                                handleRequestDeleteAsset(asset);
                               }}
                               className="p-1 bg-red-100 hover:bg-red-600 hover:text-white text-red-700 border border-black cursor-pointer transition-colors shadow-[1px_1px_0px_0px_#000]"
                               title="Hapus gambar secara permanen"
@@ -1712,6 +1795,94 @@ export default function MediaAssetsAdminPage() {
           </div>,
           document.body
         )}
+
+      {/* Delete Asset Confirmation Modal */}
+      {assetToDelete &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white border-4 border-black p-6 max-w-md w-full shadow-[8px_8px_0px_0px_#000000] relative space-y-4"
+            >
+              <div className="flex items-center gap-3 text-red-600">
+                <div className="w-10 h-10 bg-red-100 border-2 border-black flex items-center justify-center shrink-0 shadow-[2px_2px_0px_0px_#000]">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="font-['Space_Mono',monospace] font-bold text-base text-gray-900 uppercase">
+                    Hapus Aset Permanen?
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-1">
+                    File ini akan dihapus permanen dari Cloudinary storage dan tidak dapat dipulihkan.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-200 p-2.5 flex items-center gap-3">
+                {assetToDelete.url && (
+                  <div className="w-12 h-12 relative border border-black shrink-0 overflow-hidden bg-gray-900">
+                    <Image
+                      src={assetToDelete.url}
+                      alt={assetToDelete.name}
+                      fill
+                      unoptimized
+                      className="object-cover"
+                    />
+                  </div>
+                )}
+                <div className="text-xs truncate">
+                  <p className="font-bold text-gray-900 truncate">{assetToDelete.name}</p>
+                  <p className="text-gray-500 font-mono text-[10px] truncate">
+                    {assetToDelete.public_id || assetToDelete.id}
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t-2 border-black">
+                <button
+                  type="button"
+                  disabled={isDeletingAsset}
+                  onClick={() => setAssetToDelete(null)}
+                  className="px-4 py-2 border-2 border-black bg-white text-gray-800 text-xs font-bold uppercase shadow-[2px_2px_0px_0px_#000] hover:bg-gray-100 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeletingAsset}
+                  onClick={confirmDeleteAsset}
+                  className="px-4 py-2 border-2 border-black bg-red-600 text-white text-xs font-bold uppercase shadow-[2px_2px_0px_0px_#000] hover:bg-red-700 cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isDeletingAsset ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Menghapus...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Hapus Permanen</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Toast Feedback Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[10000] bg-emerald-500 text-white border-2 border-black shadow-[4px_4px_0px_0px_#000] px-4 py-3 font-mono text-xs font-bold flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
+          <Check className="w-4 h-4" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 }
