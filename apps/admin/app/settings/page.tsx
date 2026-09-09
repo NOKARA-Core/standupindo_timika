@@ -15,6 +15,8 @@ import {
   X,
   RefreshCw,
   Loader2,
+  Phone,
+  ShoppingBag,
 } from "lucide-react";
 
 interface AdminUser {
@@ -60,6 +62,66 @@ export default function SettingsAdminPage() {
       setLoadingUsers(false);
     }
   };
+
+  // Settings state
+  const [whatsappOrderNumber, setWhatsappOrderNumber] = useState("6282248566675");
+  const [communityEmail, setCommunityEmail] = useState("standupindotimika@gmail.com");
+  const [communityName, setCommunityName] = useState("StandUp INDO Timika");
+  const [hqAddress, setHqAddress] = useState("SKY COFFEE25, Jl. Bhayangkara, Koperapoka, Timika");
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
+
+  const fetchSettings = async () => {
+    try {
+      setLoadingSettings(true);
+      const res = await fetch("/api/settings");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.whatsapp_order_number) setWhatsappOrderNumber(data.whatsapp_order_number);
+        if (data.community_email) setCommunityEmail(data.community_email);
+        if (data.community_name) setCommunityName(data.community_name);
+        if (data.hq_address) setHqAddress(data.hq_address);
+      }
+    } catch (err) {
+      console.error("Failed to load settings:", err);
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSettings(true);
+    setSettingsSuccess(null);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          whatsapp_order_number: whatsappOrderNumber,
+          community_email: communityEmail,
+          community_name: communityName,
+          hq_address: hqAddress,
+        }),
+      });
+      if (res.ok) {
+        setSettingsSuccess("Pengaturan nomor WhatsApp dan profil operasional berhasil disimpan ke database!");
+        setTimeout(() => setSettingsSuccess(null), 4000);
+      } else {
+        const data = await res.json();
+        alert(data.error || "Gagal menyimpan pengaturan");
+      }
+    } catch {
+      alert("Terjadi gangguan jaringan saat menyimpan pengaturan");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
 
   useEffect(() => {
     if (activeTab === "users") {
@@ -197,105 +259,131 @@ export default function SettingsAdminPage() {
 
       {/* TAB 1: General & Operations */}
       {activeTab === "general" && (
-        <div className="space-y-5">
-          <div className="bg-white border border-gray-200 p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
-              <div className="p-2.5 bg-orange-50 text-orange-600 rounded-full">
-                <Building className="w-5 h-5" />
+        <form onSubmit={handleSaveSettings} className="space-y-6">
+          {/* Success Alert */}
+          {settingsSuccess && (
+            <div className="p-4 bg-[#10B981] border-2 border-black shadow-[4px_4px_0px_0px_#000] flex items-center gap-2 font-mono text-xs font-bold text-black">
+              <Check className="w-4 h-4" />
+              <span>{settingsSuccess}</span>
+            </div>
+          )}
+
+          {/* Card 1: WhatsApp Checkout & Hotline Configuration */}
+          <div className="bg-[#FFF8F6] border-4 border-black p-6 shadow-[6px_6px_0px_0px_#000000] space-y-4">
+            <div className="flex items-center gap-3 pb-3 border-b-2 border-black">
+              <div className="w-10 h-10 bg-[#10B981] border-2 border-black flex items-center justify-center text-black shrink-0 shadow-[2px_2px_0px_0px_#000000]">
+                <Phone className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-gray-900">
-                  StandUp INDO Timika Operations Center
+                <span className="px-2 py-0.5 bg-black text-white font-mono text-[9px] font-bold uppercase tracking-widest">
+                  STORE CHECKOUT HOTLINE
+                </span>
+                <h3 className="font-['Anton',sans-serif] text-xl text-gray-900 uppercase tracking-wide mt-0.5">
+                  WHATSAPP ORDER CONFIGURATION
                 </h3>
-                <p className="text-xs text-gray-500">
-                  Informasi identitas resmi sekretariat dan basecamp komunitas
+                <p className="text-xs text-gray-600">
+                  Target nomor WhatsApp resmi untuk tombol <strong>&quot;ORDER VIA WHATSAPP&quot;</strong> pada katalog merchandise web publik.
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div className="space-y-3">
               <div>
-                <label className="block font-semibold text-gray-700 mb-1">
+                <label className="block font-mono text-xs font-bold uppercase text-gray-900 mb-1">
+                  WhatsApp Order Number (Format: 628xxxxxxxxxx) *
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={whatsappOrderNumber}
+                    onChange={(e) => setWhatsappOrderNumber(e.target.value)}
+                    placeholder="6282248566675"
+                    className="w-full bg-white border-2 border-black px-3 py-2.5 font-mono text-sm font-bold text-gray-900 rounded-none focus:outline-none focus:ring-2 focus:ring-[#FF4500]"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[10px] text-gray-400 font-bold">
+                    WA.ME TARGET
+                  </div>
+                </div>
+                <p className="text-[11px] text-gray-600 font-mono mt-1.5 leading-relaxed">
+                  • Masukkan nomor tanpa spasi, strip, atau tanda plus (+). Awali dengan kode negara <strong>62</strong> (Contoh: <code className="bg-white px-1 border border-black font-bold">6282248566675</code>).
+                  <br />
+                  • Pengunjung yang mengklik order merchandise akan diarahkan ke chat otomatis lengkap dengan nama barang dan harga.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Community Operations & Sekretariat */}
+          <div className="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#000000] space-y-4">
+            <div className="flex items-center gap-3 pb-3 border-b-2 border-black">
+              <div className="w-10 h-10 bg-[#FF4500] border-2 border-black flex items-center justify-center text-white shrink-0 shadow-[2px_2px_0px_0px_#000000]">
+                <Building className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-['Anton',sans-serif] text-xl text-gray-900 uppercase tracking-wide">
+                  IDENTITAS OPERASIONAL KOMUNITAS
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Informasi sekretariat dan kontak korespondensi resmi StandUp INDO Timika
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+              <div>
+                <label className="block font-bold text-gray-800 uppercase mb-1">
                   Nama Komunitas
                 </label>
                 <input
                   type="text"
-                  readOnly
-                  value="StandUp INDO Timika"
-                  className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 font-medium"
+                  value={communityName}
+                  onChange={(e) => setCommunityName(e.target.value)}
+                  className="w-full bg-gray-50 border-2 border-black px-3 py-2 text-gray-900 font-medium"
                 />
               </div>
               <div>
-                <label className="block font-semibold text-gray-700 mb-1">
-                  Wilayah Chapter
+                <label className="block font-bold text-gray-800 uppercase mb-1">
+                  Email Kontak Pengurus
                 </label>
                 <input
-                  type="text"
-                  readOnly
-                  value="Kabupaten Mimika, Papua Tengah"
-                  className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 font-medium"
+                  type="email"
+                  value={communityEmail}
+                  onChange={(e) => setCommunityEmail(e.target.value)}
+                  className="w-full bg-gray-50 border-2 border-black px-3 py-2 text-gray-900 font-medium"
                 />
               </div>
             </div>
 
-            <div className="text-xs">
-              <label className="block font-semibold text-gray-700 mb-1">
-                Basecamp Resmi (HQ)
+            <div className="text-xs font-mono">
+              <label className="block font-bold text-gray-800 uppercase mb-1">
+                Basecamp Resmi (HQ / Venue Rutin)
               </label>
               <input
                 type="text"
-                readOnly
-                value="SKY COFFEE25, Jl. Bhayangkara, Koperapoka, Timika"
-                className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 font-medium"
+                value={hqAddress}
+                onChange={(e) => setHqAddress(e.target.value)}
+                className="w-full bg-gray-50 border-2 border-black px-3 py-2 text-gray-900 font-medium"
               />
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
-              <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-full">
-                <Shield className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-gray-900">
-                  Persetujuan & Kurasi Panggung
-                </h3>
-                <p className="text-xs text-gray-500">
-                  Standar operasional kurasi panggung open mic mingguan
-                </p>
-              </div>
-            </div>
-
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Setiap pendaftar Open Mic baru wajib melalui tahap verifikasi line-up di menu <strong>Dashboard</strong> atau <strong>Events</strong> sebelum nama komika dipublikasikan ke jadwal penonton.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-1">
-              <div>
-                <label className="block font-semibold text-gray-700 mb-1">
-                  Email Kontak Pengurus
-                </label>
-                <input
-                  type="text"
-                  readOnly
-                  value="standupindotimika@gmail.com"
-                  className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 font-medium"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-gray-700 mb-1">
-                  WhatsApp Admin
-                </label>
-                <input
-                  type="text"
-                  readOnly
-                  value="+62 812-3456-7890"
-                  className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-gray-900 font-medium"
-                />
-              </div>
-            </div>
+          {/* Save Action Button */}
+          <div className="flex justify-end pt-2">
+            <button
+              type="submit"
+              disabled={savingSettings}
+              className="px-6 py-3 bg-[#FF4500] hover:bg-black text-white font-mono text-xs font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000] transition-all flex items-center gap-2 cursor-pointer"
+            >
+              {savingSettings ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Check className="w-4 h-4" />
+              )}
+              <span>{savingSettings ? "MENYIMPAN..." : "SIMPAN PENGATURAN"}</span>
+            </button>
           </div>
-        </div>
+        </form>
       )}
 
       {/* TAB 2: Database Backup (.sql) */}

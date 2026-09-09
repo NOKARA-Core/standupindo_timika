@@ -10,6 +10,163 @@ import {
 export type { WebPartnerItem };
 export { defaultWebPartners };
 
+export interface DBComedian {
+  id: string;
+  realName?: string;
+  stageName: string;
+  comedyStyle: string;
+  punchline: string;
+  bio: string;
+  phone?: string | null;
+  totalOpenMic: number;
+  isActive: boolean;
+  avatarUrl?: string | null;
+}
+
+export interface DBMerchandise {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  stock: number;
+  imageUrl?: string | null;
+  description?: string | null;
+  badge?: string | null;
+  isActive: boolean;
+}
+
+export const defaultWebComedians: DBComedian[] = [
+  {
+    id: "dimas",
+    stageName: "DIMAS",
+    comedyStyle: "Observational",
+    punchline: "Master of awkward silences and brutal observations about Timika traffic.",
+    bio: "Membawa keresahan hidup anak perantau di pelosok Papua dengan gaya deadpan dingin tanpa ekspresi.",
+    totalOpenMic: 24,
+    isActive: true,
+    avatarUrl: null,
+  },
+  {
+    id: "tika",
+    stageName: "TIKA",
+    comedyStyle: "Storytelling",
+    punchline: "Rapid-fire punchlines dissecting modern relationships and local cafe culture.",
+    bio: "Pencerita ulung yang membongkar realita pacaran dan obrolan tongkrongan Timika yang relatable.",
+    totalOpenMic: 31,
+    isActive: true,
+    avatarUrl: null,
+  },
+  {
+    id: "rian",
+    stageName: "RIAN",
+    comedyStyle: "Dark Comedy",
+    punchline: "No one is safe. If you sit in the front row, you're part of the set.",
+    bio: "Raja roast battle Timika dengan punchline tajam yang menguji mental penonton baris depan.",
+    totalOpenMic: 42,
+    isActive: true,
+    avatarUrl: null,
+  },
+  {
+    id: "yosua",
+    stageName: "YOSUA",
+    comedyStyle: "Absurd",
+    punchline: "Logika terbalik dan premis tak terduga yang bikin mikir dua kali.",
+    bio: "Eksplorasi humor surealis dan analogi absurd yang membengkokkan akal sehat dengan tawa renyah.",
+    totalOpenMic: 18,
+    isActive: true,
+    avatarUrl: null,
+  },
+  {
+    id: "budi-k",
+    stageName: "BUDI K.",
+    comedyStyle: "Observational",
+    punchline: "Menertawakan birokrasi dan harga tiket pesawat pedalaman Papua.",
+    bio: "Spesialis komedi keresahan harian, harga sembako, dan perjuangan sinyal di pelosok Mimika.",
+    totalOpenMic: 29,
+    isActive: true,
+    avatarUrl: null,
+  },
+  {
+    id: "samuel",
+    stageName: "SAMUEL",
+    comedyStyle: "Storytelling",
+    punchline: "Kisah nyata masa kecil pesisir dengan tempo lambat tapi meledak.",
+    bio: "Menghadirkan nostalgia kampung halaman dan kehangatan tawa khas Indonesia Timur yang otentik.",
+    totalOpenMic: 20,
+    isActive: true,
+    avatarUrl: null,
+  },
+];
+
+export const defaultWebMerchandise: DBMerchandise[] = [
+  {
+    id: "tee-liveraw",
+    name: "'LIVE RAW' HEAVYWEIGHT TEE",
+    category: "T-Shirt",
+    price: 150000,
+    stock: 25,
+    description: "Cotton Combed 24s Heavyweight, sablon plastisol doff kasar tahan banting. Cuttingan boxy fit underground.",
+    badge: "BESTSELLER",
+    imageUrl: null,
+    isActive: true,
+  },
+  {
+    id: "hoodie-underground",
+    name: "TIMIKA CHAPTER HEAVY HOODIE",
+    category: "Hoodie",
+    price: 320000,
+    stock: 15,
+    description: "Fleece 330gsm tebal cocok untuk hawa dingin malam Mimika. Grafis bordir punchline di dada dan punggung.",
+    badge: "LIMITED EDITION",
+    imageUrl: null,
+    isActive: true,
+  },
+  {
+    id: "mug-bitter",
+    name: "THE BITTER COMEDIAN MUG",
+    category: "Aksesoris",
+    price: 80000,
+    stock: 40,
+    description: "Keramik hitam doff 12oz. Menampung kopi pahit untuk menemani kamu nulis premis sampai subuh.",
+    badge: "OFFICIAL MERCH",
+    imageUrl: null,
+    isActive: true,
+  },
+  {
+    id: "sticker-pack",
+    name: "STANDUP TIMIKA STICKER PACK (10 PCS)",
+    category: "Aksesoris",
+    price: 35000,
+    stock: 100,
+    description: "Vinyl waterproof die-cut tebal. Desain quote komika, logo retro, dan lambang petir komedi lokal.",
+    badge: "PACK",
+    imageUrl: null,
+    isActive: true,
+  },
+  {
+    id: "ticket-special-preorder",
+    name: "PRE-ORDER TICKET: STANDUP FEST MIMIKA",
+    category: "Tiket",
+    price: 100000,
+    stock: 50,
+    description: "Akses VIP Presale + Merchandise bundle wristband eksklusif StandUp Festival Mimika akhir tahun.",
+    badge: "EARLY ACCESS",
+    imageUrl: null,
+    isActive: true,
+  },
+  {
+    id: "tote-canvas",
+    name: "RAW PUNCHLINE CANVAS TOTE",
+    category: "Aksesoris",
+    price: 65000,
+    stock: 30,
+    description: "Kanvas tebal 14oz berresleting. Kuat bawa laptop dan buku catatan materi stand-up.",
+    badge: "NEW ARRIVAL",
+    imageUrl: null,
+    isActive: true,
+  },
+];
+
 export async function getPartnersFromDB(): Promise<WebPartnerItem[]> {
   if (process.env.NEXT_PHASE === "phase-production-build") {
     return defaultWebPartners;
@@ -31,8 +188,90 @@ export async function getPartnersFromDB(): Promise<WebPartnerItem[]> {
   return defaultWebPartners;
 }
 
+export async function getComediansFromDB(): Promise<DBComedian[]> {
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return defaultWebComedians;
+  }
+  try {
+    const sql = getSql();
+    const rows = await sql`
+      SELECT 
+        id,
+        real_name as "realName",
+        stage_name as "stageName",
+        comedy_style as "comedyStyle",
+        punchline,
+        bio,
+        phone,
+        total_open_mic as "totalOpenMic",
+        is_active as "isActive",
+        avatar_url as "avatarUrl"
+      FROM comedians
+      WHERE is_active = true
+      ORDER BY stage_name ASC
+    `;
+    if (rows && rows.length > 0) {
+      return rows as unknown as DBComedian[];
+    }
+  } catch (err) {
+    console.warn("Could not load comedians from database:", err);
+  }
+  return defaultWebComedians;
+}
+
+export async function getMerchandiseFromDB(): Promise<DBMerchandise[]> {
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return defaultWebMerchandise;
+  }
+  try {
+    const sql = getSql();
+    const rows = await sql`
+      SELECT 
+        id,
+        name,
+        price::float as price,
+        category,
+        stock,
+        image_url as "imageUrl",
+        description,
+        badge,
+        is_active as "isActive"
+      FROM merchandise
+      WHERE is_active = true
+      ORDER BY created_at DESC
+    `;
+    if (rows && rows.length > 0) {
+      return rows as unknown as DBMerchandise[];
+    }
+  } catch (err) {
+    console.warn("Could not load merchandise from database:", err);
+  }
+  return defaultWebMerchandise;
+}
+
+export async function getWhatsAppOrderNumberFromDB(): Promise<string> {
+  const defaultNumber = "6282248566675";
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return defaultNumber;
+  }
+  try {
+    const sql = getSql();
+    const rows = await sql`
+      SELECT value
+      FROM settings
+      WHERE key = 'whatsapp_order_number'
+      LIMIT 1
+    `;
+    if (rows && rows.length > 0 && rows[0]?.value) {
+      return String(rows[0].value).trim();
+    }
+  } catch (err) {
+    console.warn("Could not load WhatsApp number from settings:", err);
+  }
+  return defaultNumber;
+}
+
 export async function getMediaSettingsFromDB(): Promise<SiteAssetsConfig> {
-  // During next build phase, return default config to avoid hanging database sockets
   if (process.env.NEXT_PHASE === "phase-production-build") {
     return defaultSiteConfig;
   }

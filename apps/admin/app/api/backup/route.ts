@@ -15,6 +15,9 @@ export async function GET() {
       "admin_users",
       "members",
       "finances",
+      "merchandise",
+      "partners",
+      "settings",
     ];
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");

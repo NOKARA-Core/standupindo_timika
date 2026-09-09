@@ -7,15 +7,24 @@ import { StoreSection } from "../src/components/StoreSection";
 import { PartnersSection } from "../src/components/PartnersSection";
 import { LocationSection } from "../src/components/LocationSection";
 import { Footer } from "../src/components/Footer";
-import { getMediaSettingsFromDB, getPartnersFromDB } from "../src/lib/site-config.server";
+import {
+  getMediaSettingsFromDB,
+  getPartnersFromDB,
+  getComediansFromDB,
+  getMerchandiseFromDB,
+  getWhatsAppOrderNumberFromDB,
+} from "../src/lib/site-config.server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function HomePage() {
-  const [config, partners] = await Promise.all([
+  const [config, partners, comedians, merchandise, whatsappNumber] = await Promise.all([
     getMediaSettingsFromDB(),
     getPartnersFromDB(),
+    getComediansFromDB(),
+    getMerchandiseFromDB(),
+    getWhatsAppOrderNumberFromDB(),
   ]);
 
   return (
@@ -24,9 +33,16 @@ export default async function HomePage() {
       <main className="flex-1 flex flex-col">
         <HeroSection heroConfig={config?.hero} />
         <ScheduleSection />
-        <TalentGridSection comediansConfig={config?.comedians} />
+        <TalentGridSection
+          comedians={comedians}
+          comediansConfig={config?.comedians}
+        />
         <GallerySection documentationConfig={config?.flyers} />
-        <StoreSection merchConfig={config?.merch} />
+        <StoreSection
+          merchandise={merchandise}
+          merchConfig={config?.merch}
+          whatsappNumber={whatsappNumber}
+        />
         <PartnersSection partners={partners} />
         <LocationSection />
       </main>

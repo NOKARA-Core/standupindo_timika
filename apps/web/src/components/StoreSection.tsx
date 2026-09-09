@@ -1,18 +1,36 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingBag, MessageCircle } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
 import { MerchAssetConfig, defaultSiteConfig } from "../lib/site-config";
+import { DBMerchandise } from "../lib/site-config.server";
 
 interface StoreSectionProps {
   merchConfig?: MerchAssetConfig[];
+  merchandise?: DBMerchandise[];
+  whatsappNumber?: string;
   isDynamic?: boolean;
 }
 
 export function StoreSection({
   merchConfig = defaultSiteConfig.merch,
+  merchandise,
+  whatsappNumber = "6282248566675",
   isDynamic = false,
 }: StoreSectionProps) {
+  // Use real DB merchandise if provided and non-empty, otherwise fallback to merchConfig
+  const items =
+    merchandise && merchandise.length > 0
+      ? merchandise.slice(0, 4)
+      : merchConfig.slice(0, 4).map((m) => ({
+          id: m.id,
+          name: m.name,
+          price: m.price,
+          description: m.description,
+          badge: m.badge,
+          imageUrl: m.imageUrl,
+        }));
+
   return (
     <section
       id="store"
@@ -42,8 +60,15 @@ export function StoreSection({
 
         {/* Product Cards Grid with Staggered pop-in */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {merchConfig.map((product, index) => {
+          {items.map((product, index) => {
             const hasCustomImage = Boolean(product.imageUrl?.trim());
+            const displayPrice =
+              typeof product.price === "number"
+                ? `Rp ${product.price.toLocaleString("id-ID")}`
+                : product.price;
+
+            const orderMessage = `Halo StandUP INDO Timika, saya ingin memesan merchandise: ${product.name} seharga ${displayPrice}. Apakah stok masih tersedia?`;
+            const waOrderUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(orderMessage)}`;
 
             return (
               <AnimateReveal
@@ -69,7 +94,7 @@ export function StoreSection({
 
                     {/* Top Badge */}
                     <span className="px-2 py-0.5 bg-black text-white font-['Space_Mono',monospace] text-[10px] font-bold uppercase tracking-wider self-start z-10 relative">
-                      {product.badge}
+                      {product.badge || "OFFICIAL"}
                     </span>
 
                     {/* Default Mock typography */}
@@ -93,27 +118,37 @@ export function StoreSection({
                   <div className="flex-1 p-6 flex flex-col justify-between gap-6">
                     <div>
                       <div className="flex items-start justify-between gap-4">
-                        <h3 className="font-['Anton',sans-serif] text-3xl text-[#281812] uppercase tracking-wide">
+                        <h3 className="font-['Anton',sans-serif] text-2xl md:text-3xl text-[#281812] uppercase tracking-wide">
                           {product.name}
                         </h3>
                         <span className="px-3 py-1 bg-[#10B981] text-black font-['Space_Mono',monospace] text-sm font-bold border-2 border-black shadow-[2px_2px_0px_0px_#000000] whitespace-nowrap">
-                          {product.price}
+                          {displayPrice}
                         </span>
                       </div>
 
-                      <p className="font-['Work_Sans',sans-serif] text-base text-[#5C4037] mt-3 leading-relaxed">
+                      <p className="font-['Work_Sans',sans-serif] text-sm md:text-base text-[#5C4037] mt-3 leading-relaxed">
                         {product.description}
                       </p>
                     </div>
 
-                    <Link
-                      href="/store"
-                      className="group w-full py-3 bg-black text-[#ffffff] hover:bg-white hover:text-[#000000] font-['Space_Mono',monospace] text-sm font-bold tracking-wider uppercase border-2 border-black shadow-[4px_4px_0px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all text-center block"
-                    >
-                      <span className="text-[#ffffff] group-hover:text-[#000000]">
-                        VIEW ON STORE
-                      </span>
-                    </Link>
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                      <a
+                        href={waOrderUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 w-full py-3 bg-[#10B981] hover:bg-emerald-400 text-black font-['Space_Mono',monospace] text-xs font-bold tracking-wider uppercase border-2 border-black shadow-[3px_3px_0px_0px_#000000] active:translate-x-[1px] active:translate-y-[1px] transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <MessageCircle className="w-4 h-4 text-black" />
+                        <span>ORDER WA</span>
+                      </a>
+
+                      <Link
+                        href="/store"
+                        className="flex-1 w-full py-3 bg-black hover:bg-white text-white hover:text-black font-['Space_Mono',monospace] text-xs font-bold tracking-wider uppercase border-2 border-black shadow-[3px_3px_0px_0px_#000000] active:translate-x-[1px] active:translate-y-[1px] transition-all text-center block"
+                      >
+                        VIEW STORE
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </AnimateReveal>

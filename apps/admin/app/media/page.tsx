@@ -546,7 +546,7 @@ export default function MediaAssetsAdminPage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
           <div className="bg-gray-50 border-2 border-black p-3.5 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between">
@@ -580,30 +580,15 @@ export default function MediaAssetsAdminPage() {
           <div className="bg-gray-50 border-2 border-black p-3.5 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-900">3. Event Flyer</span>
-                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-black text-white">4:5 Portrait</span>
+                <span className="text-xs font-bold text-gray-900">3. Dokumentasi Kegiatan</span>
+                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-black text-white">16:9 / 4:3</span>
               </div>
               <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
-                Poster acara open mic dan show berbayar.
+                Dokumentasi panggung, tawa penonton, dan bento galeri arsip.
               </p>
             </div>
             <div className="mt-3 pt-2 border-t border-gray-200 text-[10px] text-gray-500 font-mono">
-              • Rekomendasi: 1080 × 1350 px (JPG / PNG)
-            </div>
-          </div>
-
-          <div className="bg-gray-50 border-2 border-black p-3.5 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-900">4. Merch Product</span>
-                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-[#FF4500] text-white">1:1 Square</span>
-              </div>
-              <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
-                Foto produk kaos, hoodie, dan merchandise.
-              </p>
-            </div>
-            <div className="mt-3 pt-2 border-t border-gray-200 text-[10px] text-gray-500 font-mono">
-              • Rekomendasi: 800 × 800 px (Transparan PNG)
+              • Rekomendasi: 1200 × 800 px (JPG / PNG)
             </div>
           </div>
         </div>
@@ -1143,159 +1128,6 @@ export default function MediaAssetsAdminPage() {
                             onClick={() => handleOpenMediaPicker(slotId, "DOCUMENTATION")}
                             className="p-1 bg-[#FFF8F6] border border-black text-black hover:bg-yellow-300"
                             title="Pilih foto dokumentasi dari storage"
-                          >
-                            <Images className="w-3.5 h-3.5 text-[#FF4500]" />
-                          </button>
-                          <label className="inline-flex items-center gap-1 px-2.5 py-1 bg-black hover:bg-[#FF4500] text-white text-[10px] font-bold border border-black cursor-pointer">
-                            <Upload className="w-3 h-3" />
-                            <span>Upload</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => handleStageFile(slotId, e)}
-                            />
-                          </label>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* SLOT 4: MERCH PRODUCTS */}
-        <div className="bg-white border-2 border-black p-6 shadow-[6px_6px_0px_0px_#000]">
-          <div className="pb-4 border-b-2 border-black">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <h3 className="text-sm font-bold text-gray-900 uppercase font-['Space_Mono',monospace] tracking-wider">
-                Slot 4: Store Merchandise Items
-              </h3>
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Visual produk merchandise official (Rasio 1:1 Square).
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-            {siteConfig.merch.map((m) => {
-              const slotId = `merch-${m.id}`;
-              const staged = stagedSlots[slotId];
-              const isUploading = uploadingSlot === slotId;
-              const feedback = slotFeedback[slotId];
-              const activeImage = staged ? staged.previewUrl : m.imageUrl;
-
-              return (
-                <div
-                  key={m.id}
-                  className="border-2 border-black p-4 bg-gray-50 flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between pb-2 border-b border-gray-300">
-                      <span className="font-bold text-xs text-gray-900">{m.name}</span>
-                      <span className="text-[10px] font-bold text-black bg-[#10B981] px-2 py-0.5 border border-black shadow-[1px_1px_0px_0px_#000] font-mono">
-                        {m.price}
-                      </span>
-                    </div>
-
-                    {/* Preview Frame */}
-                    <div className="mt-3 aspect-square max-h-[180px] bg-white border-2 border-black relative overflow-hidden flex items-center justify-center mx-auto w-full">
-                      {activeImage ? (
-                        <Image
-                          src={activeImage}
-                          alt={m.name}
-                          fill
-                          className="object-contain p-2"
-                        />
-                      ) : (
-                        <div className="text-center p-3">
-                          <ImageIcon className="w-6 h-6 text-gray-300 mx-auto mb-1" />
-                          <span className="text-[11px] text-gray-400 font-mono block">
-                            Mock Box Bawaan
-                          </span>
-                        </div>
-                      )}
-
-                      {staged && (
-                        <div className="absolute top-2 left-2 z-10 px-1.5 py-0.5 bg-yellow-300 border border-black text-[9px] font-bold">
-                          {staged.source === "storage" ? "STORAGE" : "STAGING"}
-                        </div>
-                      )}
-                    </div>
-
-                    {feedback && (
-                      <div className="mt-2 p-1 text-center bg-emerald-100 border border-emerald-400 text-emerald-800 text-[10px] font-bold">
-                        ✓ {feedback}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t-2 border-black flex flex-col gap-2">
-                    {staged ? (
-                      <div className="flex items-center gap-1.5 w-full">
-                        <button
-                          type="button"
-                          disabled={isUploading}
-                          onClick={() => handleCancelPreview(slotId)}
-                          className="flex-1 py-1 text-[10px] font-bold border border-black bg-white hover:bg-gray-100"
-                        >
-                          Batal
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isUploading}
-                          onClick={() =>
-                            handleApplySlot(slotId, "stup-timika/merch", (url) => ({
-                              ...siteConfig,
-                              merch: siteConfig.merch.map((item) =>
-                                item.id === m.id
-                                  ? { ...item, imageUrl: url, isCustom: true }
-                                  : item
-                              ),
-                            }))
-                          }
-                          className="flex-1 py-1 text-[10px] font-bold border border-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1"
-                        >
-                          {isUploading ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            "Terapkan"
-                          )}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-1.5">
-                        {(m.imageUrl || m.isCustom) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (confirm(`Hapus foto produk untuk ${m.name}?`)) {
-                                handleResetSlot(slotId, () => ({
-                                  ...siteConfig,
-                                  merch: siteConfig.merch.map((item) =>
-                                    item.id === m.id
-                                      ? { ...item, imageUrl: null, isCustom: false }
-                                      : item
-                                  ),
-                                }));
-                              }
-                            }}
-                            className="text-[10px] font-bold text-red-700 hover:text-white hover:bg-red-600 flex items-center gap-1 cursor-pointer bg-red-100 border border-black px-2 py-0.5 shadow-[1px_1px_0px_0px_#000] transition-colors"
-                            title="Hapus foto produk"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            <span>Hapus</span>
-                          </button>
-                        )}
-                        <div className="flex items-center gap-1 ml-auto">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenMediaPicker(slotId, "DOCUMENTATION")}
-                            className="p-1 bg-[#FFF8F6] border border-black text-black hover:bg-yellow-300"
-                            title="Pilih foto produk dari storage"
                           >
                             <Images className="w-3.5 h-3.5 text-[#FF4500]" />
                           </button>

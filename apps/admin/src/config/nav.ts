@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   Calendar,
   Mic2,
+  ShoppingBag,
   DollarSign,
   Users,
   Image as ImageIcon,
@@ -32,6 +33,11 @@ export const adminNavItems: NavItem[] = [
     label: "Comedians",
     href: "/comedians",
     icon: Mic2,
+  },
+  {
+    label: "Merchandise",
+    href: "/store",
+    icon: ShoppingBag,
   },
   {
     label: "Finances",
