@@ -60,9 +60,9 @@ export function HeroSection({
           </div>
         </div>
 
-        {/* Right Column: Hero Visual Frame */}
+        {/* Right Column: Hero Visual Frame with Recoil Punch Entrance and Spring Settling */}
         <div
-          className="w-full max-w-[548px] h-[380px] md:h-[480px] lg:h-[500px] aspect-[4/5] sm:aspect-square md:aspect-[4/5] mx-auto bg-[#FFF8F6] border-4 border-black rounded-none shadow-[8px_8px_0px_0px_#000000] hover:shadow-[12px_12px_0px_0px_#000000] relative overflow-hidden flex flex-col justify-between p-6 select-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.01]"
+          className="w-full max-w-[548px] h-[380px] md:h-[480px] lg:h-[500px] aspect-[4/5] sm:aspect-square md:aspect-[4/5] mx-auto bg-[#FFF8F6] border-4 border-black rounded-none shadow-[8px_8px_0px_0px_#000000] hover:shadow-[12px_12px_0px_0px_#000000] relative overflow-hidden flex flex-col justify-between p-6 cursor-pointer select-none transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] animate-hero-entrance rotate-[1.8deg] hover:rotate-0 hover:scale-[1.01]"
         >
           {/* Dynamic Image Layer (when active) */}
           {hasCustomImage && activeHeroUrl && (
