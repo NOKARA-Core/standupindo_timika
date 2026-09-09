@@ -40,7 +40,7 @@ export function PartnersSection({
 
   return (
     <section className="w-full bg-[#FDFBF7] py-12 md:py-16 border-b-2 border-black overflow-hidden select-none">
-      <div className="max-w-6xl mx-auto px-4 md:px-6 mb-8">
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 md:px-12 lg:px-20 mb-8">
         {/* Section Heading */}
         <AnimateReveal variant="slide-left" durationMs={650}>
           <div className="flex items-center gap-3 md:gap-4">
@@ -54,14 +54,14 @@ export function PartnersSection({
         </AnimateReveal>
       </div>
 
-      {/* Mobile-First Multi-Column Grid (Semua Sponsor Terlihat Jelas) */}
-      <div className="max-w-6xl mx-auto px-4 md:px-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4 w-full">
+      {/* Auto-Scale Multi-Column Grid (Mobile: 2-3 kolom, Desktop: auto-fit full row lebar seksi) */}
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 md:px-12 lg:px-20">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 md:gap-6 w-full">
           {displayItems.map((partner, index) => {
             const cardInner = (
-              <div className="bg-white border-4 border-black shadow-[4px_4px_0px_0px_#000] rounded-none p-3 flex flex-col items-center justify-between animate-brutal-tick hover:rotate-2 hover:scale-105 hover:bg-[#FF4500]/10 hover:shadow-[6px_6px_0px_0px_#000] transition-transform duration-75 ease-out cursor-pointer h-full min-h-[120px]">
+              <div className="bg-white border-4 border-black shadow-[4px_4px_0px_0px_#000] rounded-none p-3 md:p-5 flex flex-col items-center justify-between animate-brutal-tick hover:rotate-2 hover:scale-105 hover:bg-[#FF4500]/10 hover:shadow-[6px_6px_0px_0px_#000] transition-transform duration-75 ease-out cursor-pointer h-full min-h-[120px] md:min-h-[140px] w-full">
                 {/* Area Logo Fixed */}
-                <div className="h-14 md:h-16 w-full flex items-center justify-center relative">
+                <div className="h-14 md:h-20 w-full flex items-center justify-center relative">
                   {partner.logoUrl ? (
                     <Image
                       src={partner.logoUrl}
@@ -78,7 +78,7 @@ export function PartnersSection({
                 </div>
 
                 {/* Label Nama Brand */}
-                <span className="text-[10px] md:text-xs font-mono font-bold uppercase tracking-wider text-black border-t-2 border-black w-full text-center pt-1 mt-2 line-clamp-1">
+                <span className="text-[10px] md:text-xs font-mono font-bold uppercase tracking-wider text-black border-t-2 border-black w-full text-center pt-1.5 mt-2.5 line-clamp-1">
                   {partner.name}
                 </span>
               </div>
@@ -90,13 +90,16 @@ export function PartnersSection({
                 href={partner.websiteUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block focus:outline-none"
+                className="block focus:outline-none w-full h-full"
                 title={`Kunjungi ${partner.name}`}
               >
                 {cardInner}
               </a>
             ) : (
-              <div key={partner.id || `${partner.name}-${index}`}>
+              <div
+                key={partner.id || `${partner.name}-${index}`}
+                className="w-full h-full"
+              >
                 {cardInner}
               </div>
             );
