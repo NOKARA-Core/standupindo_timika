@@ -144,9 +144,11 @@ export function StoreSection({
 
                       <Link
                         href="/store"
-                        className="flex-1 w-full py-3 bg-black hover:bg-white text-white hover:text-black font-['Space_Mono',monospace] text-xs font-bold tracking-wider uppercase border-2 border-black shadow-[3px_3px_0px_0px_#000000] active:translate-x-[1px] active:translate-y-[1px] transition-all text-center block"
+                        className="group flex-1 w-full py-3 bg-black hover:bg-white text-white hover:text-black font-['Space_Mono',monospace] text-xs font-bold tracking-wider uppercase border-2 border-black shadow-[3px_3px_0px_0px_#000000] active:translate-x-[1px] active:translate-y-[1px] transition-all text-center block"
                       >
-                        VIEW STORE
+                        <span className="text-white group-hover:text-black transition-colors">
+                          VIEW STORE
+                        </span>
                       </Link>
                     </div>
                   </div>
