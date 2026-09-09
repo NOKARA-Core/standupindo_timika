@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { LogOut, AlertTriangle, Loader2 } from "lucide-react";
 
 interface LogoutButtonProps {
@@ -14,6 +15,22 @@ export function LogoutButton({
 }: LogoutButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Handle ESC key to dismiss modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen && !loading) {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, loading]);
 
   const handleLogout = async () => {
     setLoading(true);
@@ -87,59 +104,74 @@ export function LogoutButton({
         </div>
       )}
 
-      {/* Confirmation Modal */}
-      {isOpen && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white border-4 border-black p-6 max-w-md w-full shadow-[8px_8px_0px_0px_#000000] relative">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-[#FFE9E3] border-2 border-black flex items-center justify-center text-red-600 shrink-0">
-                <AlertTriangle className="w-5 h-5" />
+      {/* Confirmation Modal rendered via Portal directly into document.body */}
+      {isOpen &&
+        mounted &&
+        createPortal(
+          <div
+            onClick={() => !loading && setIsOpen(false)}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="logout-modal-title"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white border-4 border-black p-6 md:p-8 max-w-md w-full shadow-[8px_8px_0px_0px_#000000] relative animate-in zoom-in-95 duration-150"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-11 h-11 bg-[#FFE9E3] border-2 border-black flex items-center justify-center text-red-600 shrink-0 shadow-[2px_2px_0px_0px_#000000]">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3
+                    id="logout-modal-title"
+                    className="font-['Space_Mono',monospace] font-black text-base md:text-lg text-gray-900 uppercase tracking-tight"
+                  >
+                    Konfirmasi Logout
+                  </h3>
+                  <p className="text-xs text-gray-600">
+                    Panel Operasi StandUp INDO Timika
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-['Space_Mono',monospace] font-black text-base text-gray-900 uppercase tracking-tight">
-                  Konfirmasi Logout
-                </h3>
-                <p className="text-xs text-gray-600">
-                  Panel Operasi StandUp INDO Timika
-                </p>
+
+              <p className="text-sm text-gray-700 leading-relaxed mb-6 font-medium">
+                Apakah Anda yakin ingin mengakhiri sesi admin saat ini? Anda harus memasukkan kredensial kembali untuk mengakses panel kontrol.
+              </p>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t-2 border-gray-100">
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setIsOpen(false)}
+                  className="px-4 py-2 border-2 border-black font-bold text-xs uppercase tracking-wider hover:bg-gray-100 active:translate-y-0.5 cursor-pointer transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={handleLogout}
+                  className="px-4 py-2 bg-red-600 text-white border-2 border-black font-bold text-xs uppercase tracking-wider shadow-[3px_3px_0px_0px_#000000] hover:bg-red-700 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none cursor-pointer transition-all flex items-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Memproses...</span>
+                    </>
+                  ) : (
+                    <>
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Ya, Logout Sekarang</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
-
-            <p className="text-sm text-gray-700 leading-relaxed mb-6 font-medium">
-              Apakah Anda yakin ingin mengakhiri sesi admin saat ini? Anda harus memasukkan kredensial kembali untuk mengakses panel kontrol.
-            </p>
-
-            <div className="flex items-center justify-end gap-3 pt-2 border-t-2 border-gray-100">
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => setIsOpen(false)}
-                className="px-4 py-2 border-2 border-black font-bold text-xs uppercase tracking-wider hover:bg-gray-100 cursor-pointer transition-colors"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={handleLogout}
-                className="px-4 py-2 bg-red-600 text-white border-2 border-black font-bold text-xs uppercase tracking-wider shadow-[3px_3px_0px_0px_#000000] hover:bg-red-700 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none cursor-pointer transition-all flex items-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Memproses...</span>
-                  </>
-                ) : (
-                  <>
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Ya, Logout Sekarang</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </>
   );
 }
