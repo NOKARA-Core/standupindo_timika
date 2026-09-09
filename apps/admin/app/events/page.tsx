@@ -73,7 +73,7 @@ export default function EventsAdminPage() {
     setType("OPEN MIC");
     setDate(new Date().toISOString().split("T")[0] || "2026-10-01");
     setTime("20:00 WIT");
-    setVenue("SKY COFFEE25");
+    setVenue("Sky Coffee25 Timika");
     setAddress("Jl. Bhayangkara, Koperapoka, Timika");
     setHost("RIAN 'THE HAMMER'");
     setPrice("FREE ENTRY");

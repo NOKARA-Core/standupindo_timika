@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Calendar } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
 import { DBEvent, defaultWebEvents } from "../lib/site-config.server";
-import { isValidTapTapLink, formatEventDate } from "./EventsCatalogClient";
+import { isValidTapTapLink, formatEventDate } from "../lib/events-utils";
 
 interface ScheduleSectionProps {
   events?: DBEvent[];
