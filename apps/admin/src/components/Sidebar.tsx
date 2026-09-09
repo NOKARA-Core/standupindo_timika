@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { adminNavItems } from "../config/nav";
+import { LogoutButton } from "./LogoutButton";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -171,8 +172,8 @@ export function Sidebar({
             })}
           </nav>
 
-          {/* Sidebar Footer: User Card */}
-          <div className="p-3 border-t border-gray-200 bg-gray-50/50 shrink-0">
+          {/* Sidebar Footer: User Card & Logout */}
+          <div className="p-3 border-t border-gray-200 bg-gray-50/50 shrink-0 space-y-2">
             <div
               className={`flex items-center gap-3 px-1 py-1 ${
                 isCollapsed ? "justify-center" : ""
@@ -192,6 +193,9 @@ export function Sidebar({
                 </div>
               )}
             </div>
+
+            {/* Logout Action Button */}
+            <LogoutButton variant="sidebar" isCollapsed={isCollapsed} />
           </div>
         </div>
       </aside>

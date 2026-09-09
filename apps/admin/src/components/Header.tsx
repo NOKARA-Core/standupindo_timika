@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Menu, ExternalLink, Bell } from "lucide-react";
 import { adminNavItems } from "../config/nav";
+import { LogoutButton } from "./LogoutButton";
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -53,7 +54,7 @@ export function Header({
         </div>
       </div>
 
-      {/* Right: Quick Action, Notification & Avatar */}
+      {/* Right: Quick Action, Notification & Avatar & Logout */}
       <div className="flex items-center gap-3 md:gap-4">
         {/* Quick External Link to Web App (Port 5000) */}
         <a
@@ -90,6 +91,9 @@ export function Header({
             </span>
           </div>
         </div>
+
+        {/* Dedicated Logout Action Button */}
+        <LogoutButton variant="header" />
       </div>
     </header>
   );
