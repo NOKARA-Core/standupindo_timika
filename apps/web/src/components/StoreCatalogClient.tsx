@@ -6,10 +6,14 @@ import { ShoppingBag, MessageCircle, Check, Package } from "lucide-react";
 import { AnimateReveal } from "./AnimateReveal";
 import { DBMerchandise } from "../lib/site-config.server";
 
+import { NeoPagination } from "./NeoPagination";
+
 interface StoreCatalogClientProps {
   merchandise: DBMerchandise[];
   whatsappNumber: string;
 }
+
+const ITEMS_PER_PAGE = 6;
 
 export function StoreCatalogClient({
   merchandise,
@@ -18,6 +22,12 @@ export function StoreCatalogClient({
   const [selectedFilter, setSelectedFilter] = useState<string>("ALL");
   const [cartCount, setCartCount] = useState<number>(0);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const handleFilterChange = (filter: string) => {
+    setSelectedFilter(filter);
+    setCurrentPage(1);
+  };
 
   // Derive unique categories
   const categories = ["ALL", "T-Shirt", "Hoodie", "Aksesoris", "Tiket"];
@@ -26,6 +36,12 @@ export function StoreCatalogClient({
     if (selectedFilter === "ALL") return true;
     return p.category.toLowerCase() === selectedFilter.toLowerCase();
   });
+
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const handleAddToCart = (name: string) => {
     setCartCount((prev) => prev + 1);
@@ -67,7 +83,7 @@ export function StoreCatalogClient({
             <button
               key={filter}
               type="button"
-              onClick={() => setSelectedFilter(filter)}
+              onClick={() => handleFilterChange(filter)}
               className={`px-5 py-2.5 font-['Space_Mono',monospace] text-xs md:text-sm font-bold uppercase tracking-wider border-2 border-black cursor-pointer active:translate-x-[1px] active:translate-y-[1px] transition-all ${
                 selectedFilter === filter
                   ? "bg-[#FF4500] text-white shadow-[4px_4px_0px_0px_#000000]"
@@ -101,8 +117,9 @@ export function StoreCatalogClient({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredProducts.map((product, index) => {
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {paginatedProducts.map((product, index) => {
             const hasCustomImage = Boolean(product.imageUrl?.trim());
             const formattedPrice = `Rp ${Number(product.price).toLocaleString("id-ID")}`;
             const isOutOfStock = product.stock <= 0;
@@ -213,6 +230,16 @@ export function StoreCatalogClient({
             );
           })}
         </div>
+
+        {/* Pagination Controls per 6 items */}
+        <NeoPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredProducts.length}
+          pageSize={ITEMS_PER_PAGE}
+        />
+      </>
       )}
     </main>
   );

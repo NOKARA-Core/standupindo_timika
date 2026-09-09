@@ -92,7 +92,7 @@ export function TalentsCatalogClient({
               <button
                 key={cat}
                 type="button"
-                onClick={() => setSelectedCategory(cat)}
+                onClick={() => handleCategoryChange(cat)}
                 className={`px-5 py-2.5 font-['Space_Mono',monospace] text-xs md:text-sm font-bold uppercase tracking-wider border-2 border-black cursor-pointer active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_#000000] transition-all ${
                   selectedCategory === cat
                     ? "bg-[#FF4500] text-white shadow-[4px_4px_0px_0px_#000000]"
@@ -110,7 +110,7 @@ export function TalentsCatalogClient({
               type="text"
               placeholder="SEARCH TALENT..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full bg-white border-2 border-black px-4 py-2.5 pl-10 font-['Space_Mono',monospace] text-sm text-[#281812] placeholder-[#5C4037] rounded-none focus:outline-none focus:ring-2 focus:ring-[#FF4500] shadow-[4px_4px_0px_0px_#000000]"
             />
             <Search className="w-4 h-4 text-[#281812] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -129,8 +129,9 @@ export function TalentsCatalogClient({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredComedians.map((comedian, index) => {
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {paginatedComedians.map((comedian, index) => {
             const hasCustomPhoto = Boolean(comedian.avatarUrl?.trim());
             const bookingTargetPhone = comedian.phone?.replace(/\D/g, "") || whatsappNumber;
             const bookingMsg = `Halo StandUP INDO Timika, saya ingin mengundang / booking komika: ${comedian.stageName} untuk panggung acara. Mohon info ketersediaan jadwal.`;
@@ -222,6 +223,16 @@ export function TalentsCatalogClient({
             );
           })}
         </div>
+
+        {/* Pagination Controls per 6 items */}
+        <NeoPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredComedians.length}
+          pageSize={ITEMS_PER_PAGE}
+        />
+      </>
       )}
     </main>
   );
