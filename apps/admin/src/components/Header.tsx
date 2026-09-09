@@ -57,15 +57,6 @@ export function Header({
       {/* Right: Quick Action, Notification & Avatar & Logout */}
       <div className="flex items-center gap-3 md:gap-4">
         {/* Quick External Link to Web App (Port 5000) */}
-        <a
-          href={webUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-3 py-1.5 transition-colors"
-        >
-          <span>View Live Site</span>
-          <ExternalLink className="w-3.5 h-3.5 text-gray-500" />
-        </a>
 
         {/* Notification Bell */}
         <button
