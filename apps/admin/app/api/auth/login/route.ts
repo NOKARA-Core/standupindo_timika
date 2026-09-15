@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSql } from "../../../../src/lib/db";
-
-// Declare Bun global for TypeScript if types/bun not installed
-declare const Bun: any;
+import bcrypt from "bcryptjs";
 
 // Dummy bcrypt hash to ensure constant-time comparison when user doesn't exist (anti-timing attack)
 const DUMMY_BCRYPT_HASH =
@@ -115,7 +113,7 @@ export async function POST(request: Request) {
     if (!user) {
       // Execute dummy verify so elapsed time matches normal verification
       try {
-        await Bun.password.verify(password, DUMMY_BCRYPT_HASH);
+        await bcrypt.compare(password, DUMMY_BCRYPT_HASH);
       } catch {}
 
       recordFailedAttempt(ipKey, now);
@@ -127,7 +125,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const isMatch = await Bun.password.verify(password, user.password_hash);
+    const isMatch = await bcrypt.compare(password, user.password_hash);
 
     if (!isMatch) {
       recordFailedAttempt(ipKey, now);

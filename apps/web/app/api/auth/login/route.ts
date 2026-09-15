@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSql } from "../../../../src/lib/db";
 import { loginSchema } from "../../../../src/lib/security";
-
-// Declare Bun global for TypeScript
-declare const Bun: any;
+import bcrypt from "bcryptjs";
 
 export async function POST(request: Request) {
   try {
@@ -41,7 +39,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const isMatch = await Bun.password.verify(password, user.password_hash);
+    const isMatch = await bcrypt.compare(password, user.password_hash);
 
     if (!isMatch) {
       return NextResponse.json(

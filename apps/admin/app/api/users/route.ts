@@ -2,9 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSql } from "../../../src/lib/db";
 import { requireAdminSession } from "../../../src/lib/auth";
-
-// Declare Bun global for TypeScript
-declare const Bun: any;
+import bcrypt from "bcryptjs";
 
 export interface AdminUserItem {
   id: string;
@@ -97,10 +95,7 @@ export async function PUT(request: Request) {
           { status: 400 }
         );
       }
-      passwordHash = await Bun.password.hash(password, {
-        algorithm: "bcrypt",
-        cost: 10,
-      });
+      passwordHash = await bcrypt.hash(password, 10);
     }
 
     const safeName = name ? String(name).trim() : user.name;
@@ -163,10 +158,7 @@ export async function POST(request: Request) {
     }
 
     // Hash password with bcrypt
-    const passwordHash = await Bun.password.hash(password, {
-      algorithm: "bcrypt",
-      cost: 10,
-    });
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const id = `usr-${Date.now()}`;
 
