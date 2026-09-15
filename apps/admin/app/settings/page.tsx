@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { RoleGuard } from "../../src/components/RoleGuard";
+import { useAuth } from "../../src/context/AuthContext";
 import {
   Shield,
   Building,
@@ -9,6 +10,8 @@ import {
   Database,
   Users,
   Plus,
+  Pencil,
+  KeyRound,
   Trash2,
   Lock,
   AlertTriangle,
@@ -29,6 +32,7 @@ interface AdminUser {
 }
 
 export default function SettingsAdminPage() {
+  const { user: currentUser, role: currentRole, refreshUser } = useAuth();
   const [activeTab, setActiveTab] = useState<"general" | "backup" | "users">("general");
 
   // Backup state
@@ -41,13 +45,23 @@ export default function SettingsAdminPage() {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
 
-  // User form state
+  // User form state (Create)
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState("superadmin");
   const [userFormError, setUserFormError] = useState<string | null>(null);
   const [isSubmittingUser, setIsSubmittingUser] = useState(false);
+
+  // User edit state
+  const [editUser, setEditUser] = useState<AdminUser | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editRole, setEditRole] = useState("curator");
+  const [editPassword, setEditPassword] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [userSuccessMessage, setUserSuccessMessage] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
@@ -207,6 +221,65 @@ export default function SettingsAdminPage() {
     }
   };
 
+  useEffect(() => {
+    if (currentRole !== "superadmin" && activeTab === "backup") {
+      setActiveTab("general");
+    }
+  }, [currentRole, activeTab]);
+
+  const openEditModal = (u: AdminUser) => {
+    setEditUser(u);
+    setEditName(u.name);
+    setEditEmail(u.email);
+    setEditRole(u.role);
+    setEditPassword("");
+    setEditError(null);
+  };
+
+  const handleEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editUser) return;
+    setEditError(null);
+    setIsSubmittingEdit(true);
+
+    try {
+      const res = await fetch("/api/users", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editUser.id,
+          name: editName,
+          email: editEmail,
+          role: editRole,
+          password: editPassword.trim().length > 0 ? editPassword : undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setEditError(data.error || "Gagal memperbarui akun admin");
+        return;
+      }
+
+      setUserSuccessMessage(
+        editPassword.trim().length > 0
+          ? `Akun ${data.user?.name || editName} & password berhasil diperbarui!`
+          : `Akun ${data.user?.name || editName} berhasil diperbarui!`
+      );
+      setTimeout(() => setUserSuccessMessage(null), 4500);
+
+      await fetchUsers();
+      if (currentUser?.id === editUser.id) {
+        await refreshUser();
+      }
+      setEditUser(null);
+    } catch {
+      setEditError("Terjadi gangguan jaringan saat memperbarui user");
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
   return (
     <RoleGuard>
       <div className="space-y-6 max-w-4xl">
@@ -233,18 +306,20 @@ export default function SettingsAdminPage() {
         >
           General & Operations
         </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("backup")}
-          className={`pb-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeTab === "backup"
-              ? "border-[#FF4500] text-[#FF4500] font-bold"
-              : "border-transparent text-gray-500 hover:text-gray-900"
-          }`}
-        >
-          <Database className="w-3.5 h-3.5" />
-          <span>Database Backup (.sql)</span>
-        </button>
+        {currentRole === "superadmin" && (
+          <button
+            type="button"
+            onClick={() => setActiveTab("backup")}
+            className={`pb-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "backup"
+                ? "border-[#FF4500] text-[#FF4500] font-bold"
+                : "border-transparent text-gray-500 hover:text-gray-900"
+            }`}
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>Database Backup (.sql)</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setActiveTab("users")}
@@ -473,24 +548,34 @@ export default function SettingsAdminPage() {
               <button
                 type="button"
                 onClick={fetchUsers}
-                className="p-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 transition-colors shadow-xs"
+                className="p-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 transition-colors shadow-xs cursor-pointer"
                 title="Refresh Daftar User"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loadingUsers ? "animate-spin" : ""}`} />
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setUserFormError(null);
-                  setIsUserModalOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold tracking-wider transition-colors cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ ADD NEW ADMIN</span>
-              </button>
+              {currentRole === "superadmin" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserFormError(null);
+                    setIsUserModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold tracking-wider transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ ADD NEW ADMIN</span>
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Success Notification */}
+          {userSuccessMessage && (
+            <div className="p-3 bg-[#10B981]/15 border-2 border-[#10B981] flex items-center gap-2 font-mono text-xs font-bold text-emerald-900">
+              <Check className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span>{userSuccessMessage}</span>
+            </div>
+          )}
 
           {/* Users Table */}
           <div className="bg-white border border-gray-200 shadow-xs overflow-hidden">
@@ -530,40 +615,77 @@ export default function SettingsAdminPage() {
                       </td>
                     </tr>
                   ) : (
-                    users.map((u) => (
-                      <tr key={u.id} className="hover:bg-gray-50/75 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-sm text-gray-900">{u.name}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="font-mono text-xs text-gray-700 bg-gray-100 px-2 py-0.5 w-fit border border-gray-200">
-                            {u.email}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-block px-2.5 py-0.5 text-xs font-semibold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">
-                            {u.role}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-xs text-gray-500">
-                          {new Date(u.createdAt).toLocaleDateString("id-ID", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => setDeleteUserId(u.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                            title="Cabut Hak Akses Akun"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                    users.map((u) => {
+                      const isSelf = currentUser?.id === u.id;
+                      const canEdit = currentRole === "superadmin" || isSelf;
+                      const canDelete = currentRole === "superadmin" && !isSelf;
+
+                      return (
+                        <tr key={u.id} className="hover:bg-gray-50/75 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-sm text-gray-900">{u.name}</span>
+                              {isSelf && (
+                                <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold uppercase bg-black text-white rounded">
+                                  YOU
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="font-mono text-xs text-gray-700 bg-gray-100 px-2 py-0.5 w-fit border border-gray-200">
+                              {u.email}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`inline-block px-2.5 py-0.5 text-xs font-semibold uppercase rounded border ${
+                                u.role === "superadmin"
+                                  ? "bg-purple-50 text-purple-700 border-purple-200"
+                                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              }`}
+                            >
+                              {u.role}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-xs text-gray-500">
+                            {new Date(u.createdAt).toLocaleDateString("id-ID", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {canEdit && (
+                                <button
+                                  type="button"
+                                  onClick={() => openEditModal(u)}
+                                  className="px-2.5 py-1 text-gray-700 hover:text-black hover:bg-gray-100 rounded border border-gray-300 hover:border-black transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
+                                  title="Edit Akun & Password"
+                                >
+                                  <Pencil className="w-3.5 h-3.5 text-blue-600" />
+                                  <span className="text-[11px] font-semibold">Edit</span>
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteUserId(u.id)}
+                                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded border border-transparent hover:border-red-200 transition-colors cursor-pointer"
+                                  title="Cabut Hak Akses Akun"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              {!canEdit && !canDelete && (
+                                <span className="text-[11px] font-mono text-gray-400 italic">Read-only</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -756,6 +878,142 @@ export default function SettingsAdminPage() {
                 Ya, Hapus Akun
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: Edit Admin User & Password */}
+      {editUser && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border-4 border-black max-w-md w-full p-6 shadow-[8px_8px_0px_0px_#000000] space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b-2 border-black">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 bg-[#3B82F6] border-2 border-black flex items-center justify-center text-white shrink-0 shadow-[2px_2px_0px_0px_#000]">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-mono text-sm font-bold uppercase tracking-wider text-gray-900">
+                    EDIT AKUN & PASSWORD
+                  </h3>
+                  <p className="text-[10px] text-gray-500 font-mono">
+                    {currentUser?.id === editUser.id ? "Akun Anda Sendiri" : `Target User: ${editUser.name}`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditUser(null)}
+                className="text-gray-400 hover:text-black cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {editError && (
+              <div className="p-2.5 bg-red-100 border border-red-300 text-red-700 text-xs font-semibold">
+                {editError}
+              </div>
+            )}
+
+            <form onSubmit={handleEditUser} className="space-y-4 text-xs font-mono">
+              <div>
+                <label className="block font-bold text-gray-700 uppercase mb-1">
+                  Nama Lengkap *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Nama Lengkap"
+                  className="w-full border-2 border-black p-2 bg-[#FFF8F6] focus:outline-none focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 uppercase mb-1">
+                  Username / Email Login *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="Username atau Email"
+                  className="w-full border-2 border-black p-2 bg-[#FFF8F6] focus:outline-none focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 uppercase mb-1 flex items-center justify-between">
+                  <span>Ganti Password Baru</span>
+                  <span className="text-[10px] font-normal text-gray-500 lowercase">(opsional)</span>
+                </label>
+                <input
+                  type="password"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Kosongkan jika tidak ingin mengubah password"
+                  className="w-full border-2 border-black p-2 bg-[#FFF8F6] focus:outline-none focus:bg-white"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Minimal 6 karakter jika ingin mengganti password akun ini.
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 uppercase mb-1">
+                  Role / Otoritas Akun
+                </label>
+                {currentRole === "superadmin" ? (
+                  <select
+                    value={editRole}
+                    onChange={(e) => setEditRole(e.target.value)}
+                    className="w-full border-2 border-black p-2 bg-[#FFF8F6] focus:outline-none focus:bg-white cursor-pointer font-bold"
+                  >
+                    <option value="superadmin">SUPERADMIN (FULL ACCESS)</option>
+                    <option value="curator">CURATOR (EVENTS & TALENTS ONLY)</option>
+                  </select>
+                ) : (
+                  <div>
+                    <input
+                      type="text"
+                      disabled
+                      value={editRole.toUpperCase()}
+                      className="w-full border-2 border-gray-300 p-2 bg-gray-100 text-gray-500 font-bold uppercase cursor-not-allowed"
+                    />
+                    <p className="text-[10px] text-amber-700 mt-1 flex items-center gap-1">
+                      <Lock className="w-3 h-3 shrink-0" />
+                      <span>Hanya Superadmin yang berwenang mengubah role akun.</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t-2 border-black flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditUser(null)}
+                  className="px-4 py-2 border-2 border-black bg-white hover:bg-gray-100 font-bold uppercase transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingEdit}
+                  className="px-4 py-2 border-2 border-black bg-black hover:bg-[#3B82F6] text-white font-bold uppercase transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  {isSubmittingEdit ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <span>Simpan Perubahan</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
